@@ -1,0 +1,235 @@
+{% block sw_sezzle_customers_detail %}
+<sw-page class="sw-sezzle-customers-detail">
+    {% block sw_sezzle_customers_detail_header %}
+    <template #smart-bar-header>
+        <h2>Sezzle Customer Details</h2>
+    </template>
+    {% endblock %}
+
+    {% block sw_sezzle_customers_detail_actions %}
+    <template #smart-bar-actions>
+        <sw-button @click="$router.push({ name: 'sw.sezzle.customers.index' })">
+            Back to List
+        </sw-button>
+    </template>
+    {% endblock %}
+
+    {% block sw_sezzle_customers_detail_content %}
+    <template #content>
+        <sw-loader v-if="isLoading"></sw-loader>
+
+        <div v-else-if="customer" class="sw-sezzle-customers-detail__content">
+            
+            <!-- Customer Information Card -->
+            <sw-card title="Customer Information">
+                <sw-container columns="repeat(auto-fit, minmax(250px, 1fr))" gap="20px">
+                    <sw-text-field
+                        label="First Name"
+                        :value="customer.firstName"
+                        :disabled="true"
+                    ></sw-text-field>
+
+                    <sw-text-field
+                        label="Last Name"
+                        :value="customer.lastName"
+                        :disabled="true"
+                    ></sw-text-field>
+
+                    <sw-text-field
+                        label="Email"
+                        :value="customer.email"
+                        :disabled="true"
+                    ></sw-text-field>
+
+                    <sw-text-field
+                        label="Phone"
+                        :value="customer.phone || 'N/A'"
+                        :disabled="true"
+                    ></sw-text-field>
+
+                    <sw-text-field
+                        label="Sezzle Customer UUID"
+                        :value="customer.sezzleCustomerUuid"
+                        :disabled="true"
+                    ></sw-text-field>
+
+                    <sw-text-field
+                        label="Tokenized"
+                        :value="customer.isTokenized ? 'Yes' : 'No'"
+                        :disabled="true"
+                    ></sw-text-field>
+                </sw-container>
+            </sw-card>
+
+            <!-- Create Order Section (Only for Tokenized Customers) -->
+            <sw-card v-if="customer.isTokenized" title="Create Order & Charge Customer" class="sw-sezzle-customers-detail__order-creation">
+                <div v-if="!showOrderCreation">
+                    <sw-button variant="primary" @click="showOrderCreation = true">
+                        + Create New Order
+                    </sw-button>
+                    <p class="sw-sezzle-customers-detail__info">
+                        This customer is tokenized. You can create a Shopware order and charge this customer directly.
+                    </p>
+                </div>
+
+                <div v-else>
+                    <!-- Sales Channel & Customer Selection -->
+                    <sw-container columns="1fr 1fr" gap="20px" class="sw-sezzle-customers-detail__form-row">
+                        <sw-entity-single-select
+                            label="Sales Channel *"
+                            entity="sales_channel"
+                            v-model:value="selectedSalesChannel"
+                            :required="true"
+                        ></sw-entity-single-select>
+
+                        <sw-entity-single-select
+                            label="Shopware Customer *"
+                            entity="customer"
+                            v-model:value="selectedShopwareCustomer"
+                            :required="true"
+                            labelProperty="email"
+                        ></sw-entity-single-select>
+                    </sw-container>
+
+                    <!-- Product Selection -->
+                    <div class="sw-sezzle-customers-detail__product-selection">
+                        <sw-single-select
+                            label="Add Products to Order *"
+                            placeholder="Select a product to add..."
+                            :value="null"
+                            :options="productOptions"
+                            @update:value="onProductSelect"
+                            :disabled="productsLoading"
+                            labelProperty="label"
+                            valueProperty="value"
+                        >
+                        </sw-single-select>
+                        <p class="sw-sezzle-customers-detail__hint">
+                            {{ productsLoading ? 'Loading products...' : 'Select products one by one from the dropdown. You can adjust quantities in the table below.' }}
+                        </p>
+                    </div>
+
+                    <!-- Selected Products -->
+                    <div v-if="selectedProducts.length > 0" class="sw-sezzle-customers-detail__selected-products">
+                        <h3>Selected Products</h3>
+                        <table class="sw-sezzle-customers-detail__products-table">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Product Number</th>
+                                    <th>Price</th>
+                                    <th>Quantity</th>
+                                    <th>Total</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr v-for="(product, index) in selectedProducts" :key="product.id">
+                                    <td>{{ product.name }}</td>
+                                    <td>{{ product.productNumber }}</td>
+                                    <td>${{ product.price.toFixed(2) }}</td>
+                                    <td>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            :value="product.quantity"
+                                            @input="updateQuantity(index, $event.target.value)"
+                                            class="sw-sezzle-customers-detail__quantity-input"
+                                        />
+                                    </td>
+                                    <td>${{ (product.price * product.quantity).toFixed(2) }}</td>
+                                    <td>
+                                        <sw-button size="small" @click="removeProduct(index)" variant="danger">
+                                            Remove
+                                        </sw-button>
+                                    </td>
+                                </tr>
+                            </tbody>
+                            <tfoot>
+                                <tr>
+                                    <td colspan="4" class="text-right"><strong>Total Amount:</strong></td>
+                                    <td colspan="2"><strong>${{ totalOrderAmount.toFixed(2) }}</strong></td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="sw-sezzle-customers-detail__actions">
+                        <sw-button
+                            variant="primary"
+                            :disabled="!canCreateOrder || orderInProgress"
+                            @click="createOrderAndCharge"
+                        >
+                            <sw-loader v-if="orderInProgress" size="16px"></sw-loader>
+                            <span v-else>Create Order & Charge ${{ totalOrderAmount.toFixed(2) }}</span>
+                        </sw-button>
+
+                        <sw-button
+                            @click="showOrderCreation = false; selectedProducts = [];"
+                            :disabled="orderInProgress"
+                        >
+                            Cancel
+                        </sw-button>
+                    </div>
+                </div>
+            </sw-card>
+
+            <!-- Legacy Simple Charge (kept for backwards compatibility) -->
+            <sw-card title="Direct Charge (Simple)" v-if="customer.isTokenized">
+                <p class="sw-sezzle-customers-detail__info">
+                    Legacy charge functionality - charges customer without creating a Shopware order.
+                </p>
+
+                <sw-container columns="repeat(auto-fit, minmax(250px, 1fr))" gap="20px">
+                    <sw-text-field
+                        label="Amount *"
+                        v-model="chargeForm.amount"
+                        type="number"
+                        step="0.01"
+                        :required="true"
+                        placeholder="0.00"
+                    ></sw-text-field>
+
+                    <sw-text-field
+                        label="Currency *"
+                        v-model="chargeForm.currency"
+                        :required="true"
+                        placeholder="USD"
+                    ></sw-text-field>
+
+                    <sw-text-field
+                        label="Reference ID"
+                        v-model="chargeForm.referenceId"
+                        placeholder="Optional reference ID"
+                    ></sw-text-field>
+
+                    <sw-text-field
+                        label="Description"
+                        v-model="chargeForm.description"
+                        placeholder="Optional description"
+                    ></sw-text-field>
+                </sw-container>
+
+                <sw-button
+                    variant="primary"
+                    :disabled="chargeInProgress"
+                    @click="chargeCustomer"
+                    class="sw-sezzle-customers-detail__charge-button"
+                >
+                    <sw-loader v-if="chargeInProgress" size="16px"></sw-loader>
+                    <span v-else>Charge Customer</span>
+                </sw-button>
+            </sw-card>
+
+            <!-- Not Tokenized Warning -->
+            <sw-card v-if="!customer.isTokenized" title="Not Tokenized">
+                <sw-alert variant="warning">
+                    This customer is not tokenized yet. Customers can only be charged after they complete a successful Sezzle payment.
+                </sw-alert>
+            </sw-card>
+        </div>
+    </template>
+    {% endblock %}
+</sw-page>
+{% endblock %}

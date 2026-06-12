@@ -1,0 +1,27 @@
+{
+  "main.js": {
+    "file": "assets/sezzle-DsT8ivY7.js",
+    "name": "sezzle",
+    "src": "main.js",
+    "isEntry": true,
+    "dynamicImports": [
+      "snippet/en-GB.json",
+      "snippet/de-DE.json"
+    ],
+    "css": [
+      "assets/sezzle-SYSnRFdb.css"
+    ]
+  },
+  "snippet/de-DE.json": {
+    "file": "assets/de-DE-BhEroU0k.js",
+    "name": "de-DE",
+    "src": "snippet/de-DE.json",
+    "isDynamicEntry": true
+  },
+  "snippet/en-GB.json": {
+    "file": "assets/en-GB-D7YoHpWV.js",
+    "name": "en-GB",
+    "src": "snippet/en-GB.json",
+    "isDynamicEntry": true
+  }
+}

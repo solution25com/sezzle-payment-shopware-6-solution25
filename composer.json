@@ -1,0 +1,28 @@
+{
+  "name": "solution25/sezzle",
+  "description": "sezzle/sezzle",
+  "type": "shopware-platform-plugin",
+  "version": "1.0.0",
+  "license": "MIT",
+  "require": {
+    "shopware/core": "6.6 || ~6.7.0"
+  },
+  "extra": {
+    "shopware-plugin-class": "Sezzle\\Sezzle",
+    "plugin-icon": "src/Resources/config/plugin.png",
+    "label": {
+      "de-DE": "Sezzle Payment",
+      "en-GB": "Sezzle Payment"
+    }
+  },
+  "autoload": {
+    "psr-4": {
+      "Sezzle\\": "src/"
+    }
+  },
+  "autoload-dev": {
+    "psr-4": {
+      "Sezzle\\Tests\\": "tests/"
+    }
+  }
+}

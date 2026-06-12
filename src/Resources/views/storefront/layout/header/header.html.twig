@@ -1,0 +1,23 @@
+{% sw_extends '@Storefront/storefront/layout/header/header.html.twig' %}
+
+{% block base_head %}
+    {{ parent() }}
+    <link rel="stylesheet" href="{{ asset('bundles/sezzle/storefront/sezzle/sezzle-banner.css') }}">
+{% endblock %}
+
+{% block layout_header %}
+    {{ parent() }}
+
+    {% set sezzleData = header.extensions[constant('Sezzle\\Storefront\\Struct\\CheckoutTemplateCustomData::HEADER_EXTENSION')] ?? null %}
+    {% set isHome = app.request.attributes.get('_route') == 'frontend.home.page' %}
+
+    {% if sezzleData and (sezzleData.enableHomepageBanner ?? false) and isHome %}
+        <div
+                class="sezzle-homepage-banner"
+                data-sezzle-homepage-banner="true"
+                data-sezzle-merchant-id="{{ sezzleData.merchantId }}"
+                data-sezzle-mode="{{ sezzleData.mode }}"
+                data-sezzle-theme="indigo"
+        ></div>
+    {% endif %}
+{% endblock %}

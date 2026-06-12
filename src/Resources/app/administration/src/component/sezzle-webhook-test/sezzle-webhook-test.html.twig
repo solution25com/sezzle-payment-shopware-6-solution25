@@ -1,0 +1,86 @@
+{% block sezzle_webhook_test %}
+    <div class="sezzle-webhook-test">
+        <p class="sezzle-webhook-test__description">
+            Configure webhooks to receive real-time updates from Sezzle
+        </p>
+
+        <div class="sezzle-webhook-test__url">
+            <strong>Webhook URL:</strong>
+            <code>{{ webhookUrl }}</code>
+        </div>
+
+        <div v-if="webhookConfigured" class="sezzle-webhook-test__status" style="margin-top: 12px; padding: 12px; background: #d4edda; border: 1px solid #c3e6cb; border-radius: 4px;">
+            <strong style="color: #155724;">✓ Webhook is registered</strong>
+            <div style="font-size: 12px; color: #155724; margin-top: 4px;">UUID: {{ webhookUuid }}</div>
+        </div>
+
+        <div class="sezzle-webhook-test__actions" style="margin-top: 16px;">
+            <sw-button
+                variant="primary"
+                :isLoading="isRegisteringWebhook"
+                @click="registerWebhook"
+            >
+                {{ webhookConfigured ? 'Re-register Webhook' : 'Register Webhook' }}
+            </sw-button>
+
+            <sw-button
+                variant="ghost"
+                :isLoading="isLoadingWebhooks"
+                @click="loadWebhooksList"
+                style="margin-left: 8px;"
+            >
+                View All Webhooks
+            </sw-button>
+
+            <sw-button
+                v-if="webhookConfigured"
+                variant="danger"
+                :isLoading="isDeletingWebhook"
+                @click="deleteWebhook"
+                style="margin-left: 8px;"
+            >
+                Delete Webhook
+            </sw-button>
+
+            <sw-button
+                variant="ghost"
+                :isLoading="isTestingWebhook"
+                @click="testWebhook"
+                style="margin-left: 8px;"
+            >
+                Test Webhook
+            </sw-button>
+        </div>
+
+        <div v-if="showWebhooksList && webhooksList.length > 0" class="sezzle-webhooks-list" style="margin-top: 20px; border: 1px solid #d1d9e0; border-radius: 4px; overflow: hidden;">
+            <div style="background: #f5f7fa; padding: 12px; border-bottom: 1px solid #d1d9e0;">
+                <strong>Registered Webhooks ({{ webhooksList.length }})</strong>
+            </div>
+            <div v-for="webhook in webhooksList" :key="webhook.uuid || webhook.id" style="padding: 12px; border-bottom: 1px solid #e8ebed;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div style="flex: 1;">
+                        <div><strong>URL:</strong> {{ webhook.url }}</div>
+                        <div style="font-size: 12px; color: #52667a; margin-top: 4px;">
+                            <strong>UUID:</strong> <code>{{ webhook.uuid || webhook.id }}</code>
+                        </div>
+                        <div v-if="webhook.events && webhook.events.length" style="font-size: 12px; color: #52667a; margin-top: 4px;">
+                            <strong>Events:</strong> {{ webhook.events.join(', ') }}
+                        </div>
+                    </div>
+                    <sw-button
+                        variant="danger"
+                        size="small"
+                        @click="deleteWebhookByUuid(webhook.uuid || webhook.id)"
+                    >
+                        Delete
+                    </sw-button>
+                </div>
+            </div>
+        </div>
+
+        <div v-if="showWebhooksList && webhooksList.length === 0" class="sezzle-webhooks-empty" style="margin-top: 20px; padding: 20px; text-align: center; background: #f5f7fa; border-radius: 4px;">
+            <p style="color: #52667a; margin: 0;">No webhooks found</p>
+        </div>
+    </div>
+{% endblock %}
+

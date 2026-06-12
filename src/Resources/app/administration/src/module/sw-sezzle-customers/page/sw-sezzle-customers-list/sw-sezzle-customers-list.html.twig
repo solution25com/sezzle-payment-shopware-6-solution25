@@ -1,0 +1,85 @@
+{% block sw_sezzle_customers_list %}
+    <sw-page class="sw-sezzle-customers-list">
+        {% block sw_sezzle_customers_list_header %}
+            <template #smart-bar-header>
+                <h2>Sezzle Customers</h2>
+            </template>
+        {% endblock %}
+
+        {% block sw_sezzle_customers_list_actions %}
+            <template #smart-bar-actions>
+                <sw-button
+                    variant="primary"
+                    :isLoading="syncInProgress"
+                    @click="syncCustomers"
+                >
+                    Sync from Sezzle
+                </sw-button>
+            </template>
+        {% endblock %}
+
+        {% block sw_sezzle_customers_list_content %}
+            <template #content>
+                <sw-card>
+                    <template #toolbar>
+                        <sw-card-filter
+                            placeholder="Search customers..."
+                            @sw-card-filter-term-change="onSearch"
+                        />
+                    </template>
+
+                    <sw-container columns="1fr auto" gap="16px" class="sw-sezzle-customers-list__filter">
+                        <sw-sales-channel-switch
+                                ref="salesChannelSwitch"
+                                :sales-channel-id="selectedSalesChannel"
+                                label="Sales Channel"
+                                @change-sales-channel-id="onSalesChannelChanged"
+                        />
+                    </sw-container>
+
+                    <sw-data-grid
+                        v-if="customers && customers.length > 0"
+                        :dataSource="customers"
+                        :columns="customerColumns"
+                        :isLoading="isLoading"
+                        :showSelection="false"
+                        :showActions="true"
+                        :total="total"
+                        :page="page"
+                        :limit="limit"
+                        @column-sort="onSortColumn"
+                        @page-change="onPageChange"
+                    >
+                        <template #column-isTokenized="{ item }">
+                            <sw-icon
+                                v-if="item.isTokenized"
+                                name="default-basic-checkmark-circle"
+                                color="#37d046"
+                            />
+                            <sw-icon
+                                v-else
+                                name="default-basic-x-circle"
+                                color="#de294c"
+                            />
+                        </template>
+
+                        <template #actions="{ item }">
+                            <sw-context-menu-item
+                                @click="onEdit(item)"
+                            >
+                                View Details
+                            </sw-context-menu-item>
+                        </template>
+                    </sw-data-grid>
+
+                    <sw-empty-state
+                        v-else-if="!isLoading && (!customers || customers.length === 0)"
+                        title="No Sezzle customers found"
+                        subline="Sync customers from Sezzle to get started"
+                    />
+                </sw-card>
+            </template>
+        {% endblock %}
+    </sw-page>
+{% endblock %}
+

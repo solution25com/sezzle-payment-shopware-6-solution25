@@ -1,0 +1,28 @@
+{
+  "base": "/bundles/sezzle/administration/",
+  "entryPoints": {
+    "sezzle": {
+      "css": [
+        "/bundles/sezzle/administration/assets/sezzle-SYSnRFdb.css"
+      ],
+      "dynamic": [
+        "/bundles/sezzle/administration/assets/en-GB-D7YoHpWV.js",
+        "/bundles/sezzle/administration/assets/de-DE-BhEroU0k.js"
+      ],
+      "js": [
+        "/bundles/sezzle/administration/assets/sezzle-DsT8ivY7.js"
+      ],
+      "legacy": false,
+      "preload": []
+    }
+  },
+  "legacy": false,
+  "metadatas": {},
+  "version": [
+    "7.1.0",
+    7,
+    1,
+    0
+  ],
+  "viteServer": null
+}

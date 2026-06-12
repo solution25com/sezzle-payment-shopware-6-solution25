@@ -1,0 +1,23 @@
+<?xml version="1.0" ?>
+
+<container xmlns="http://symfony.com/schema/dic/services"
+           xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+           xsi:schemaLocation="http://symfony.com/schema/dic/services http://symfony.com/schema/dic/services/services-1.0.xsd">
+
+    <services>
+        <!-- Logger -->
+        <service id="SezzlePayment.logger" class="Monolog\Logger">
+            <argument type="string">Sezzle</argument>
+            <argument type="collection">
+                <argument type="service" id="SezzlePayment.rotatingHandler"/>
+            </argument>
+        </service>
+
+        <service id="SezzlePayment.rotatingHandler" class="Monolog\Handler\RotatingFileHandler">
+            <argument type="string">%kernel.logs_dir%/SezzlePayment-%kernel.environment%.log</argument>
+        </service>
+        <!-- Logger END -->
+    </services>
+</container>
+
+
