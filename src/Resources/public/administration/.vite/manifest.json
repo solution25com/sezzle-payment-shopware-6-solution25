@@ -1,6 +1,6 @@
 {
   "main.js": {
-    "file": "assets/sezzle-DsT8ivY7.js",
+    "file": "assets/sezzle-NMTMhgJY.js",
     "name": "sezzle",
     "src": "main.js",
     "isEntry": true,
@@ -13,13 +13,13 @@
     ]
   },
   "snippet/de-DE.json": {
-    "file": "assets/de-DE-BhEroU0k.js",
+    "file": "assets/de-DE-DRcF31h9.js",
     "name": "de-DE",
     "src": "snippet/de-DE.json",
     "isDynamicEntry": true
   },
   "snippet/en-GB.json": {
-    "file": "assets/en-GB-D7YoHpWV.js",
+    "file": "assets/en-GB-oD-Hf_5r.js",
     "name": "en-GB",
     "src": "snippet/en-GB.json",
     "isDynamicEntry": true

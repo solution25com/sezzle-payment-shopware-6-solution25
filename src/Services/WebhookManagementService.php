@@ -1,7 +1,11 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Sezzle\Services;
+
 use Sezzle\Exception\SezzleApiException;
+
 class WebhookManagementService
 {
     public function __construct(
@@ -17,7 +21,7 @@ class WebhookManagementService
             }
             $body = [
                 'url' => $webhookUrl,
-                'events' => $events, 
+                'events' => $events,
             ];
             $response = $this->sezzleClientService->createWebhook($body, $salesChannelId);
             return [
@@ -50,6 +54,7 @@ class WebhookManagementService
         try {
             $body = [
                 'url' => $webhookUrl,
+                'event' => 'order.authorized',
             ];
             $response = $this->sezzleClientService->testWebhook($body, $salesChannelId);
             return [
@@ -94,14 +99,17 @@ class WebhookManagementService
     {
         return [
             'order.authorized',
+            'order.captured',
+            'order.cancelled',
+            'order.released',
         ];
     }
     public function autoConfigureWebhook(string $domain, string $salesChannelId): array
     {
         $webhookUrl = Endpoints::callbackUrl($domain);
         $configuredEvents = $this->configService->getConfig('webhookEvents', $salesChannelId);
-        $events = !empty($configuredEvents) && is_array($configuredEvents) 
-            ? $configuredEvents 
+        $events = !empty($configuredEvents) && is_array($configuredEvents)
+            ? $configuredEvents
             : $this->getRecommendedEvents();
         try {
             $existingWebhooks = $this->sezzleClientService->listWebhooks($salesChannelId);

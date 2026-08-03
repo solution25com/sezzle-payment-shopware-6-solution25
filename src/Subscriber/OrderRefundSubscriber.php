@@ -1,11 +1,15 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Sezzle\Subscriber;
+
 use Psr\Log\LoggerInterface;
 use Sezzle\Gateways\SezzlePaymentHandler;
 use Sezzle\Services\SezzleClientService;
 use Shopware\Core\Checkout\Order\Event\OrderStateMachineStateChangeEvent;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
+
 class OrderRefundSubscriber implements EventSubscriberInterface
 {
     public function __construct(
@@ -23,9 +27,6 @@ class OrderRefundSubscriber implements EventSubscriberInterface
     public function onOrderTransactionRefunded(OrderStateMachineStateChangeEvent $event): void
     {
         $order = $event->getOrder();
-        if (!$order) {
-            return;
-        }
         try {
             $transaction = $order->getTransactions()?->first();
             if (!$transaction) {
@@ -40,6 +41,13 @@ class OrderRefundSubscriber implements EventSubscriberInterface
             if (!$sezzleOrderUuid) {
                 $this->logger->warning('Sezzle order UUID not found for refund', [
                     'orderId' => $order->getId(),
+                ]);
+                return;
+            }
+            if (!empty($customFields['sezzleRefundUuid'])) {
+                $this->logger->info('Sezzle refund already recorded from webhook; skipping outbound refund to avoid double refund', [
+                    'orderId' => $order->getId(),
+                    'sezzleRefundUuid' => $customFields['sezzleRefundUuid'],
                 ]);
                 return;
             }

@@ -1,16 +1,26 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Sezzle\Services;
-use Sezzle\Services\SezzleClientService;
-use Sezzle\Services\ConfigService;
+
 use Shopware\Core\Checkout\Cart\Cart;
+use Shopware\Core\Checkout\Shipping\ShippingMethodEntity;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsAnyFilter;
+use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
+use Shopware\Core\System\SalesChannel\Context\SalesChannelContextService;
+use Shopware\Core\System\SalesChannel\SalesChannel\AbstractContextSwitchRoute;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
+
 class ExpressCheckoutService
 {
     public function __construct(
         private readonly SezzleClientService $sezzleClientService,
         private readonly ConfigService $configService,
-        private readonly SezzleCustomerTokenizationService $tokenizationService
+        private readonly EntityRepository $shippingMethodRepository,
+        private readonly AbstractContextSwitchRoute $contextSwitchRoute
     ) {
     }
     public function createExpressSession(
@@ -66,47 +76,101 @@ class ExpressCheckoutService
             ];
         }
     }
-    public function updateShippingOptions(string $orderUuid, array $shippingAddress): bool
-    {
-        $token = $this->sezzleClientService->authenticate();
 
-        $shippingOptions = [
-            [
-                'name' => 'Standard Shipping',
-                'description' => '3-5 business days',
-                'shipping_amount_in_cents' => 1000,
-                'tax_amount_in_cents' => 500,
-                'final_order_amount_in_cents' => 11500,
-            ],
+    public function updateShippingOptions(
+        string $orderUuid,
+        array $shippingAddress,
+        array $shippingOptions,
+        SalesChannelContext $salesChannelContext
+    ): array {
+        $addressUuid = (string) ($shippingAddress['uuid'] ?? '');
+        if ($addressUuid === '' || $shippingOptions === []) {
+            return ['success' => false, 'error' => 'Missing address uuid or shipping options'];
+        }
+
+        $body = [
+            'currency_code' => $salesChannelContext->getCurrency()->getIsoCode(),
+            'address_uuid' => $addressUuid,
+            'shipping_options' => $shippingOptions,
         ];
 
-        return $this->sezzleClientService->patchOrderCheckout(
-            $orderUuid,
-            $token,
-            [
-                'currency_code' => 'USD',
-                'address_uuid' => $shippingAddress['uuid'],
-                'shipping_options' => $shippingOptions,
-            ]
-        );
+        try {
+            $response = $this->sezzleClientService->updateCheckout(
+                $orderUuid,
+                $body,
+                $salesChannelContext->getSalesChannelId()
+            );
+            return ['success' => true, 'data' => $response];
+        } catch (\Exception $e) {
+            return ['success' => false, 'error' => $e->getMessage()];
+        }
     }
 
-    public function updateCheckoutWithCustomer(
+    public function syncSelectedShippingFromSezzle(
         string $orderUuid,
-        array $customerData,
-        string $salesChannelId
+        SalesChannelContext $salesChannelContext
     ): array {
         try {
-            $response = $this->sezzleClientService->updateCheckout($orderUuid, $customerData, $salesChannelId);
-            return [
-                'success' => true,
-                'data' => $response,
-            ];
+            $orderData = $this->sezzleClientService->getOrder(
+                $orderUuid,
+                $salesChannelContext->getSalesChannelId()
+            );
         } catch (\Exception $e) {
-            return [
-                'success' => false,
-                'error' => $e->getMessage(),
-            ];
+            return ['success' => false, 'error' => 'Failed to fetch Sezzle order: ' . $e->getMessage()];
         }
+
+        $selectedName = trim((string) ($orderData['shipping_method']['name'] ?? ''));
+        if ($selectedName === '') {
+            return ['success' => false, 'error' => 'No shipping selection found in Sezzle order'];
+        }
+
+        $shippingMethod = $this->findShippingMethodByName($selectedName, $salesChannelContext);
+        if ($shippingMethod === null) {
+            return ['success' => false, 'error' => 'No matching Shopware shipping method'];
+        }
+
+        if ($shippingMethod->getId() === $salesChannelContext->getShippingMethod()->getId()) {
+            return ['success' => true, 'changed' => false];
+        }
+
+        $this->contextSwitchRoute->switchContext(
+            new RequestDataBag([
+                SalesChannelContextService::SHIPPING_METHOD_ID => $shippingMethod->getId(),
+            ]),
+            $salesChannelContext
+        );
+
+        return ['success' => true, 'changed' => true];
+    }
+
+    private function findShippingMethodByName(string $name, SalesChannelContext $salesChannelContext): ?ShippingMethodEntity
+    {
+        $cleanName = $this->stripPriceSuffix($name);
+        $context = $salesChannelContext->getContext();
+        $shippingMethodNames = array_values(array_unique([$name, $cleanName]));
+
+        // Load all possible name matches at once to avoid repository calls inside the fallback loop.
+        $matches = $this->shippingMethodRepository
+            ->search((new Criteria())->addFilter(new EqualsAnyFilter('name', $shippingMethodNames)), $context)
+            ->getEntities();
+
+        foreach ($shippingMethodNames as $shippingMethodName) {
+            foreach ($matches as $shippingMethod) {
+                if (!$shippingMethod instanceof ShippingMethodEntity) {
+                    continue;
+                }
+
+                if ($shippingMethod->getName() === $shippingMethodName && $shippingMethod->getActive()) {
+                    return $shippingMethod;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private function stripPriceSuffix(string $name): string
+    {
+        return trim(preg_replace('/\s*-\s*\$[0-9.,]+\s*$/', '', $name) ?? $name);
     }
 }

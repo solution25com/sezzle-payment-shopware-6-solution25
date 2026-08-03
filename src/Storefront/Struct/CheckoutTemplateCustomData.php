@@ -1,14 +1,15 @@
 <?php
+
 namespace Sezzle\Storefront\Struct;
+
 use Shopware\Core\Framework\Struct\Struct;
+
 class CheckoutTemplateCustomData extends Struct
 {
-    public const HEADER_EXTENSION = 'sezzle_header';
     public const EXTENSION_NAME = 'sezzle';
 
     protected ?string $merchantId = null;
     protected ?string $mode = null;
-    protected bool $enableHomepageBanner = false;
 
     public function getMerchantId(): ?string
     {
@@ -28,15 +29,5 @@ class CheckoutTemplateCustomData extends Struct
     public function setMode(?string $mode): void
     {
         $this->mode = $mode;
-    }
-
-    public function isEnableHomepageBanner(): bool
-    {
-        return $this->enableHomepageBanner;
-    }
-
-    public function setEnableHomepageBanner(bool $enableHomepageBanner): void
-    {
-        $this->enableHomepageBanner = $enableHomepageBanner;
     }
 }

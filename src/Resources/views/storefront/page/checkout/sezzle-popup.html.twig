@@ -1,0 +1,48 @@
+{% sw_extends '@Storefront/storefront/base.html.twig' %}
+
+{% block base_body_inner %}
+<div class="sezzle-popup-loading">
+    <p>Opening Sezzle checkout, please wait…</p>
+</div>
+
+<script src="https://checkout-sdk.sezzle.com/checkout.min.js" type="text/javascript"></script>
+<script type="text/javascript">
+(function () {
+    var checkoutUrl = {{ checkoutUrl|json_encode|raw }};
+    var returnUrl   = {{ returnUrl|json_encode|raw }};
+    var mode        = {{ mode|json_encode|raw }};
+    var publicKey   = {{ publicKey|json_encode|raw }};
+    var apiMode     = {{ apiMode|json_encode|raw }};
+
+    function startSezzle() {
+        var sdk = new window.Checkout({
+            mode: mode,
+            publicKey: publicKey,
+            apiMode: apiMode,
+            apiVersion: 'v2',
+        });
+
+        sdk.init({
+            onClick: function () {},
+            onComplete: function () {
+                window.location.href = returnUrl;
+            },
+            onCancel: function () {
+                window.history.back();
+            },
+            onFailure: function () {
+                window.history.back();
+            },
+        });
+
+        sdk.startCheckout({ checkout_url: checkoutUrl });
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', startSezzle);
+    } else {
+        startSezzle();
+    }
+}());
+</script>
+{% endblock %}

@@ -1,6 +1,9 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Sezzle\Services;
+
 use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Cart\CartException;
 use Shopware\Core\Checkout\Cart\LineItem\LineItem;
@@ -16,6 +19,7 @@ use Shopware\Core\System\SalesChannel\Context\SalesChannelContextService;
 use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Sezzle\DataAbstractionLayer\Entity\SezzleCustomer\SezzleCustomerEntity;
 use Sezzle\Services\OrderTransactionMapper\OrderTransactionMapper;
+
 class AdminOrderCreationService
 {
     public function __construct(
@@ -24,7 +28,6 @@ class AdminOrderCreationService
         private readonly OrderPersister $orderPersister,
         private readonly EntityRepository $productRepository,
         private readonly EntityRepository $paymentMethodRepository,
-        private readonly EntityRepository $customerRepository,
         private readonly SezzleClientService $sezzleClientService,
         private readonly ConfigService $configService,
         private readonly OrderTransactionMapper $orderTransactionMapper,
@@ -61,7 +64,7 @@ class AdminOrderCreationService
                 $errorMessages[] = $error->getMessage();
             }
             throw new \RuntimeException(
-                'Cart is empty after adding products. Errors: ' . 
+                'Cart is empty after adding products. Errors: ' .
                 (empty($errorMessages) ? 'None' : implode(', ', $errorMessages))
             );
         }
@@ -73,6 +76,7 @@ class AdminOrderCreationService
             $sezzleCustomer->getSezzleCustomerUuid(),
             $cart,
             $orderId,
+            $salesChannelContext,
             $salesChannelId,
             $context
         );
@@ -116,6 +120,7 @@ class AdminOrderCreationService
         foreach ($products as $productData) {
             $productId = $productData['productId'];
             $quantity = (int) ($productData['quantity'] ?? 1);
+            /** @var ProductEntity|null $product */
             $product = $productEntities->get($productId);
             if (!$product) {
                 throw new \RuntimeException("Product {$productId} not found");
@@ -127,13 +132,13 @@ class AdminOrderCreationService
             $lineItem = new LineItem(
                 $lineItemId,
                 LineItem::PRODUCT_LINE_ITEM_TYPE,
-                $productId, 
+                $productId,
                 $quantity
             );
             $lineItem->setStackable(true);
             $lineItem->setRemovable(true);
             $lineItem->setLabel($product->getName());
-            $lineItem->setGood(true); 
+            $lineItem->setGood(true);
             $lineItems[] = $lineItem;
         }
         if (empty($lineItems)) {
@@ -153,7 +158,7 @@ class AdminOrderCreationService
                 $errorDetails[] = $error->getMessage();
             }
             throw new \RuntimeException(
-                "Cart is empty after adding products. " . 
+                "Cart is empty after adding products. " .
                 (empty($errorDetails) ? "No error messages available. Products may be out of stock or unavailable." : "Errors: " . implode(', ', $errorDetails))
             );
         }
@@ -170,7 +175,7 @@ class AdminOrderCreationService
             SalesChannelContextService::PAYMENT_METHOD_ID => $paymentMethodId,
         ];
         return $this->salesChannelContextFactory->create(
-            Uuid::randomHex(), 
+            Uuid::randomHex(),
             $salesChannelId,
             $options
         );
@@ -184,6 +189,7 @@ class AdminOrderCreationService
         $criteria->addFilter(
             new \Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter('active', true)
         );
+        /** @var \Shopware\Core\Checkout\Payment\PaymentMethodEntity|null $paymentMethod */
         $paymentMethod = $this->paymentMethodRepository->search($criteria, $context)->first();
         return $paymentMethod?->getId();
     }
@@ -191,10 +197,11 @@ class AdminOrderCreationService
         string $sezzleCustomerUuid,
         Cart $cart,
         string $orderId,
+        SalesChannelContext $salesChannelContext,
         string $salesChannelId,
         Context $context
     ): array {
-        $currencyCode = 'USD';
+        $currencyCode = $salesChannelContext->getCurrency()->getIsoCode();
         $totalAmount = $cart->getPrice()->getTotalPrice();
         $amountInCents = (int) round($totalAmount * 100);
         $orderItems = [];

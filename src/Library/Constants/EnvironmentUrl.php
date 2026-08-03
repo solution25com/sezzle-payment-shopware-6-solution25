@@ -1,5 +1,7 @@
 <?php
+
 namespace Sezzle\Library\Constants;
+
 class EnvironmentUrl
 {
     public const SANDBOX = "https://sandbox.gateway.sezzle.com";

@@ -1,12 +1,16 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Sezzle\Services;
+
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\GuzzleException;
 use Random\RandomException;
 use Sezzle\Exception\SezzleApiException;
 use Sezzle\Exception\SezzleAuthException;
 use Sezzle\Library\Constants\EnvironmentUrl;
+
 class SezzleClientService extends Endpoints
 {
     private ?Client $client = null;
@@ -32,7 +36,7 @@ class SezzleClientService extends Endpoints
         $endpoint = self::getEndpoint(self::AUTH_TOKEN);
         $mode = $this->configs->getConfig('mode', $salesChannelId);
         $isProd = $mode === 'live';
-        $publicKey = $isProd 
+        $publicKey = $isProd
             ? $this->configs->getConfig('apiKeyLive', $salesChannelId)
             : $this->configs->getConfig('apiKeySandbox', $salesChannelId);
         $privateKey = $isProd
@@ -275,8 +279,8 @@ class SezzleClientService extends Endpoints
                 if ($statusCode >= 400) {
                     $errorData = json_decode($contents, true);
                     if ($statusCode === 409) {
-                        $errorMessage = is_array($errorData) && isset($errorData[0]['message']) 
-                            ? $errorData[0]['message'] 
+                        $errorMessage = is_array($errorData) && isset($errorData[0]['message'])
+                            ? $errorData[0]['message']
                             : 'Webhook already exists';
                         throw new SezzleApiException('Webhook already registered: ' . $errorMessage, [
                             'statusCode' => $statusCode,

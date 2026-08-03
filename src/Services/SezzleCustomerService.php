@@ -1,6 +1,9 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Sezzle\Services;
+
 use Sezzle\DataAbstractionLayer\Entity\SezzleCustomer\SezzleCustomerCollection;
 use Sezzle\DataAbstractionLayer\Entity\SezzleCustomer\SezzleCustomerEntity;
 use Shopware\Core\Framework\Context;
@@ -8,6 +11,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Sorting\FieldSorting;
+
 class SezzleCustomerService
 {
     public function __construct(
@@ -28,7 +32,7 @@ class SezzleCustomerService
                     'limit' => $limit,
                     'offset' => $offset,
                 ], $salesChannelId);
-                $customers = is_array($customersResponse) ? $customersResponse : [];
+                $customers = $customersResponse;
                 if (empty($customers)) {
                     $hasMore = false;
                     break;
@@ -74,6 +78,7 @@ class SezzleCustomerService
         }
         $criteria = new Criteria();
         $criteria->addFilter(new EqualsFilter('sezzleCustomerUuid', $customerUuid));
+        /** @var SezzleCustomerEntity|null $existing */
         $existing = $this->sezzleCustomerRepository->search($criteria, $context)->first();
         $data = [
             'sezzleCustomerUuid' => $customerUuid,
@@ -82,14 +87,14 @@ class SezzleCustomerService
             'lastName' => $customerData['last_name'] ?? null,
             'email' => $customerData['email'] ?? null,
             'phone' => $customerData['phone'] ?? null,
-            'dateOfBirth' => isset($customerData['date_of_birth']) 
-                ? new \DateTime($customerData['date_of_birth']) 
+            'dateOfBirth' => isset($customerData['date_of_birth'])
+                ? new \DateTime($customerData['date_of_birth'])
                 : null,
             'billingAddress' => $customerData['billing_address'] ?? null,
             'shippingAddress' => $customerData['shipping_address'] ?? null,
             'isTokenized' => true,
-            'tokenizedAt' => isset($customerData['tokenized_at']) 
-                ? new \DateTime($customerData['tokenized_at']) 
+            'tokenizedAt' => isset($customerData['tokenized_at'])
+                ? new \DateTime($customerData['tokenized_at'])
                 : null,
             'salesChannelId' => $salesChannelId,
             'rawData' => $customerData,
@@ -105,7 +110,9 @@ class SezzleCustomerService
         $criteria->addFilter(new EqualsFilter('sezzleCustomerUuid', $customerUuid));
         $criteria->addAssociation('shopwareCustomer');
         $criteria->addAssociation('salesChannel');
-        return $this->sezzleCustomerRepository->search($criteria, $context)->first();
+        /** @var SezzleCustomerEntity|null $result */
+        $result = $this->sezzleCustomerRepository->search($criteria, $context)->first();
+        return $result;
     }
     public function getAllCustomers(Context $context, ?int $limit = null, ?int $offset = null): SezzleCustomerCollection
     {
@@ -119,7 +126,9 @@ class SezzleCustomerService
         if ($offset !== null) {
             $criteria->setOffset($offset);
         }
-        return $this->sezzleCustomerRepository->search($criteria, $context)->getEntities();
+        /** @var SezzleCustomerCollection $collection */
+        $collection = $this->sezzleCustomerRepository->search($criteria, $context)->getEntities();
+        return $collection;
     }
     public function getTotalCount(Context $context): int
     {

@@ -1,12 +1,16 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Sezzle\Services;
+
 use Sezzle\DataAbstractionLayer\Entity\SezzleCustomer\SezzleCustomerEntity;
 use Shopware\Core\Checkout\Order\OrderEntity;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
+
 class SezzleCustomerTokenizationService
 {
     public function __construct(
@@ -26,6 +30,7 @@ class SezzleCustomerTokenizationService
         $criteria = new Criteria();
         $criteria->addFilter(new EqualsFilter('shopwareCustomerId', $customer->getId()));
         $criteria->addFilter(new EqualsFilter('salesChannelId', $salesChannelId));
+        /** @var SezzleCustomerEntity|null $existingTokenized */
         $existingTokenized = $this->sezzleCustomerRepository->search($criteria, $context)->first();
         if ($existingTokenized && $existingTokenized->isTokenized()) {
             return $existingTokenized;
@@ -73,14 +78,12 @@ class SezzleCustomerTokenizationService
             ];
             if ($existingTokenized) {
                 $customerEntity['id'] = $existingTokenized->getId();
-            } else {
             }
             $this->sezzleCustomerRepository->upsert([$customerEntity], $context);
             $criteria = new Criteria();
             $criteria->addFilter(new EqualsFilter('sezzleCustomerUuid', $sezzleCustomerResponse['uuid']));
+            /** @var SezzleCustomerEntity|null $savedCustomer */
             $savedCustomer = $this->sezzleCustomerRepository->search($criteria, $context)->first();
-            if ($savedCustomer) {
-            }
             return $savedCustomer;
         } catch (\Exception $e) {
             return null;
@@ -92,6 +95,8 @@ class SezzleCustomerTokenizationService
         $criteria->addFilter(new EqualsFilter('shopwareCustomerId', $shopwareCustomerId));
         $criteria->addFilter(new EqualsFilter('salesChannelId', $salesChannelId));
         $criteria->addFilter(new EqualsFilter('isTokenized', true));
-        return $this->sezzleCustomerRepository->search($criteria, $context)->first();
+        /** @var SezzleCustomerEntity|null $result */
+        $result = $this->sezzleCustomerRepository->search($criteria, $context)->first();
+        return $result;
     }
 }

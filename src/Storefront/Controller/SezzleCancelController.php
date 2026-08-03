@@ -1,11 +1,15 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Sezzle\Storefront\Controller;
+
 use Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionStateHandler;
 use Shopware\Core\Framework\Context;
 use Shopware\Storefront\Controller\StorefrontController;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\Routing\Attribute\Route;
+
 #[Route(defaults: ['_routeScope' => ['storefront']])]
 class SezzleCancelController extends StorefrontController
 {

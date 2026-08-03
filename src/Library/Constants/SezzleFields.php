@@ -1,5 +1,7 @@
 <?php
+
 namespace Sezzle\Library\Constants;
+
 class SezzleFields
 {
     public const ORDER_CF_ORDER_UUID = 'sezzleOrderUuid';

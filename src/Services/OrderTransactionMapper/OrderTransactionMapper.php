@@ -1,11 +1,14 @@
 <?php
+
 namespace Sezzle\Services\OrderTransactionMapper;
+
 use Sezzle\Library\Constants\SezzleFields;
 use Shopware\Core\Checkout\Order\OrderEntity;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
+
 class OrderTransactionMapper
 {
     public function __construct(
@@ -25,9 +28,10 @@ class OrderTransactionMapper
         $criteria->addAssociation('order.billingAddress.country');
         $criteria->addAssociation('order.billingAddress.countryState');
         $criteria->addAssociation('order.lineItems');
-        $criteria->addAssociation('deliveries.shippingMethod');
-        $criteria->addAssociation('deliveries.shippingOrderAddress.country');
-        $criteria->addAssociation('deliveries.shippingOrderAddress.countryState');
+        $criteria->addAssociation('order.deliveries');
+        $criteria->addAssociation('order.deliveries.shippingMethod');
+        $criteria->addAssociation('order.deliveries.shippingOrderAddress.country');
+        $criteria->addAssociation('order.deliveries.shippingOrderAddress.countryState');
         $criteria->addAssociation('paymentMethod');
         return $this->orderTransactionRepository->search($criteria, $context)->first();
     }
@@ -63,14 +67,19 @@ class OrderTransactionMapper
     }
     public function updateSezzleCustomer(OrderEntity $order, Context $context, array $webhookData): void
     {
+        $orderCustomer = $order->getOrderCustomer();
+        $customerId = $orderCustomer?->getCustomerId();
+        if ($customerId === null) {
+            return;
+        }
         $fieldToStore = [
             SezzleFields::CUSTOMER_CF_ORDER_UUID => $webhookData['orderUuid'] ?? null,
             SezzleFields::CUSTOMER_CF_CHECKOUT_UUID => $webhookData['checkoutUuid'] ?? null,
         ];
         $this->customerRepository->update([[
-            'id' => $order->getOrderCustomer()->getCustomerId(),
+            'id' => $customerId,
             'customFields' => array_merge(
-                $order->getOrderCustomer()->getCustomer()->getCustomFields() ?? [],
+                $orderCustomer->getCustomer()?->getCustomFields() ?? [],
                 $fieldToStore
             ),
         ]], $context);
@@ -80,6 +89,7 @@ class OrderTransactionMapper
         $criteria = new Criteria();
         $criteria->addFilter(new EqualsFilter('customFields.sezzleOrderUuid', $orderUuid));
         $criteria->addAssociation('transactions');
+        $criteria->addAssociation('orderCustomer.customer');
         $criteria->addAssociation('order');
         $criteria->addAssociation('deliveries.shippingMethod');
         $criteria->addAssociation('deliveries.shippingOrderAddress.country');
@@ -94,6 +104,7 @@ class OrderTransactionMapper
     {
         $criteria = new Criteria([$orderId]);
         $criteria->addAssociation('transactions');
+        /** @var OrderEntity|null $order */
         $order = $this->orderRepository->search($criteria, $context)->first();
         if (!$order) {
             return;
@@ -103,6 +114,9 @@ class OrderTransactionMapper
             return;
         }
         $transaction = $transactions->last();
+        if ($transaction === null) {
+            return;
+        }
         $this->orderTransactionRepository->update([[
             'id' => $transaction->getId(),
             'customFields' => array_merge(

@@ -1,6 +1,9 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Sezzle;
+
 use Sezzle\Gateways\SezzlePaymentHandler;
 use Sezzle\Gateways\SezzlePaymentMethod;
 use Shopware\Core\Framework\Context;
@@ -13,6 +16,7 @@ use Shopware\Core\Framework\Plugin\Context\InstallContext;
 use Shopware\Core\Framework\Plugin\Context\UninstallContext;
 use Shopware\Core\Framework\Plugin\Context\UpdateContext;
 use Shopware\Core\Framework\Plugin\Util\PluginIdProvider;
+
 class Sezzle extends Plugin
 {
     public function install(InstallContext $context): void

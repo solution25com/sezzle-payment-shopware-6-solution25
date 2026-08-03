@@ -1,6 +1,9 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Sezzle\DataAbstractionLayer\Entity\SezzleCustomer;
+
 use Shopware\Core\Checkout\Customer\CustomerDefinition;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityDefinition;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\BoolField;
@@ -15,6 +18,7 @@ use Shopware\Core\Framework\DataAbstractionLayer\Field\StringField;
 use Shopware\Core\Framework\DataAbstractionLayer\Field\DateTimeField;
 use Shopware\Core\Framework\DataAbstractionLayer\FieldCollection;
 use Shopware\Core\System\SalesChannel\SalesChannelDefinition;
+
 class SezzleCustomerDefinition extends EntityDefinition
 {
     public const ENTITY_NAME = 'sezzle_customer';

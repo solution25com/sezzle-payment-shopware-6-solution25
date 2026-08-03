@@ -1,6 +1,11 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Sezzle\Controller\Admin;
+
+use Sezzle\Gateways\SezzlePaymentHandler;
+use Shopware\Core\Checkout\Order\OrderEntity;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
 use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
@@ -9,6 +14,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
+
 #[Route(defaults: ['_routeScope' => ['api']])]
 class SezzleOrderController extends AbstractController
 {
@@ -24,6 +30,7 @@ class SezzleOrderController extends AbstractController
         $criteria->addAssociation('orderCustomer.customer');
         $criteria->addAssociation('billingAddress');
         $criteria->addAssociation('deliveries.shippingOrderAddress');
+        /** @var OrderEntity|null $order */
         $order = $this->orderRepository->search($criteria, $context)->first();
         if (!$order) {
             return new JsonResponse([
@@ -60,7 +67,7 @@ class SezzleOrderController extends AbstractController
                 'id' => $order->getId(),
                 'orderNumber' => $order->getOrderNumber(),
                 'amountTotal' => $order->getAmountTotal(),
-                'orderDateTime' => $order->getOrderDateTime()?->format('Y-m-d H:i:s'),
+                'orderDateTime' => $order->getOrderDateTime()->format('Y-m-d H:i:s'),
             ],
             'sezzleData' => $sezzleData,
         ]);
@@ -97,13 +104,14 @@ class SezzleOrderController extends AbstractController
         $orders = $this->orderRepository->search($criteria, $context);
         $data = [];
         foreach ($orders as $order) {
+            /** @var OrderEntity $order */
             $customFields = $order->getCustomFields() ?? [];
             $data[] = [
                 'orderId' => $order->getId(),
                 'orderNumber' => $order->getOrderNumber(),
                 'amountTotal' => $order->getAmountTotal(),
                 'currency' => $order->getCurrency()?->getIsoCode(),
-                'orderDateTime' => $order->getOrderDateTime()?->format('Y-m-d H:i:s'),
+                'orderDateTime' => $order->getOrderDateTime()->format('Y-m-d H:i:s'),
                 'customerEmail' => $order->getOrderCustomer()?->getEmail(),
                 'sezzleOrderUuid' => $customFields['sezzleOrderUuid'] ?? null,
                 'sezzleStatus' => $customFields['sezzleStatus'] ?? null,

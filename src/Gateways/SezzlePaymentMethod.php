@@ -1,5 +1,7 @@
 <?php
+
 namespace Sezzle\Gateways;
+
 class SezzlePaymentMethod
 {
     public function getName(): string

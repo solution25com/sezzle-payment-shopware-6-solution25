@@ -1,8 +1,12 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Sezzle\Exception;
+
 use Shopware\Core\Framework\ShopwareHttpException;
 use Symfony\Component\HttpFoundation\Response;
+
 class SezzleAuthException extends ShopwareHttpException
 {
     public function __construct(string $message = 'Sezzle authentication error', array $parameters = [])

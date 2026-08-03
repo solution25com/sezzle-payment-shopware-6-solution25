@@ -17,7 +17,77 @@
                 "errorTitle": "Webhook Registration Failed",
                 "errorMessage": "Failed to register webhook with Sezzle"
             }
+        },
+        "customers": {
+            "title": "Sezzle Customers",
+            "description": "Manage Sezzle customers",
+            "navigation": "Sezzle Customers",
+            "list": {
+                "title": "Sezzle Customers",
+                "searchPlaceholder": "Search customers...",
+                "syncButton": "Sync from Sezzle",
+                "selectSalesChannel": "Please select a sales channel",
+                "selectSalesChannelPlaceholder": "Select sales channel",
+                "columnFirstName": "First Name",
+                "columnLastName": "Last Name",
+                "columnEmail": "Email",
+                "columnPhone": "Phone",
+                "columnTokenized": "Tokenized",
+                "columnCreatedAt": "Created At",
+                "actionView": "View",
+                "emptyStateTitle": "No Sezzle customers found",
+                "emptyStateSubline": "Sync customers from Sezzle to get started",
+                "syncSuccessTitle": "Sync successful",
+                "syncSuccessMessage": "Successfully synced {count} customers",
+                "syncErrorTitle": "Sync failed",
+                "syncErrorMessage": "Failed to sync customers from Sezzle",
+                "errorTitle": "Error",
+                "errorMessage": "An error occurred while loading customers",
+                "yes": "Yes",
+                "no": "No"
+            },
+            "detail": {
+                "sezzleCustomerUuid": "Sezzle Customer UUID",
+                "email": "Email",
+                "phone": "Phone",
+                "isTokenized": "Tokenized",
+                "createdAt": "Created At",
+                "tokenizedAt": "Tokenized At",
+                "backButton": "Back",
+                "chargeAmount": "Amount",
+                "chargeAmountPlaceholder": "Enter amount",
+                "chargeCurrency": "Currency",
+                "chargeReferenceId": "Reference ID",
+                "chargeReferenceIdPlaceholder": "Optional reference ID",
+                "chargeDescription": "Description",
+                "chargeDescriptionPlaceholder": "Optional description",
+                "chargeButton": "Charge Customer",
+                "chargeSuccessTitle": "Charge successful",
+                "chargeSuccessMessage": "Customer charged successfully",
+                "chargeErrorTitle": "Charge failed",
+                "chargeErrorMessage": "Failed to charge customer",
+                "chargeValidationError": "Amount and currency are required",
+                "errorTitle": "Error",
+                "errorMessage": "An error occurred while loading customer"
+            },
+            "webhook": {
+                "description": "Configure webhooks to receive real-time updates from Sezzle",
+                "urlLabel": "Webhook URL",
+                "registerButton": "Register Webhook",
+                "testButton": "Test Webhook",
+                "test": {
+                    "successTitle": "Webhook Test Successful",
+                    "successMessage": "Webhook connection is working correctly",
+                    "errorTitle": "Webhook Test Failed",
+                    "errorMessage": "Failed to test webhook connection"
+                },
+                "register": {
+                    "successTitle": "Webhook Registered",
+                    "successMessage": "Webhook has been successfully registered with Sezzle",
+                    "errorTitle": "Webhook Registration Failed",
+                    "errorMessage": "Failed to register webhook with Sezzle"
+                }
+            }
         }
     }
 }
-

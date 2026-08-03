@@ -27,17 +27,17 @@ This plugin handles the full payment lifecycle: session creation, redirect to Se
 ### Automatic Refund Handling
 - Listens to Shopware's order refund events and automatically triggers a **refund via the Sezzle API**.
 
-### Flexible Order Flow
-- Choose between **Order then Payment** (order created first, failed payment sets order to failed) or **Payment then Order** (payment attempted first, no order created on failure).
 
 ### Popup Form Style
-- Configure how the Sezzle checkout is presented: **Popup**, **Iframe**, or **Redirect**.
+- Configure how the Sezzle checkout is presented: **Popup** or **Redirect**.
 
 ### Price Breakdown Widgets
-- Display Sezzle installment breakdowns on **product pages** and the **cart page** to increase conversion.
+- Display Sezzle installment breakdowns on the **cart page**.
 
-### Promotional Widget & Homepage Banner
-- Show a **promotional widget** and **homepage banner** to highlight Sezzle as a payment option across your storefront.
+### Promotional Widget
+- Show a **promotional widget** during checkout.
+### Promotional Widget
+- Show a **promotional widget** to highlight Sezzle during checkout.
 
 ### Webhook Configuration
 - Register and manage Sezzle webhooks directly from the Admin to receive real-time updates for order events (authorized, captured, refunded, released, cancelled, customer tokenized).
@@ -124,12 +124,11 @@ After installing the plugin, configure your **Sezzle** credentials and options t
 | **API Password Live** | Your Sezzle private API password for the Live environment |
 | **Merchant ID** | Your Sezzle Merchant ID (required) |
 
-### Order Flow
+### Checkout Presentation
 
 | Field | Description |
 |---|---|
-| **Flow** | `Order then Payment` — order is created first; failed payment sets the order to failed. `Payment then Order` — payment is attempted first; no order is created on failure |
-| **Popup Form Style** | How the Sezzle checkout is presented: `Popup`, `Iframe`, or `Redirect` |
+| **Popup Form Style** | How the Sezzle checkout is presented: `Popup` or `Redirect` |
 
 ### Authorization & Logging
 
@@ -137,16 +136,15 @@ After installing the plugin, configure your **Sezzle** credentials and options t
 |---|---|
 | **Transaction Type** | `Authorize` — authorize only, capture later. `Capture` — authorize and capture immediately |
 | **Enable Express Checkout** | Allow tokenized customers to check out faster directly from the cart |
+| **Enable customer tokenization** | Enable Sezzle customer tokenization |
 | **Enable Logging** | Enable detailed API logging for debugging (default: enabled) |
 
 ### Widgets & Banners
 
 | Field | Description |
 |---|---|
-| **Enable Price Breakdown on Product Pages** | Show Sezzle installment amounts on product detail pages |
 | **Enable Price Breakdown on Cart Page** | Show Sezzle installment amounts on the cart page |
-| **Enable Promotional Widget** | Display a Sezzle promotional widget across the storefront |
-| **Enable Homepage Banner** | Display a Sezzle banner on the homepage |
+| **Enable Promotional Widget** | Display a Sezzle promotional widget during checkout |
 
 ### Webhook Configuration
 

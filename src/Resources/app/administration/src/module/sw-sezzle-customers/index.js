@@ -1,7 +1,5 @@
 import './page/sw-sezzle-customers-list';
 import './page/sw-sezzle-customers-detail';
-import deDE from './snippet/de-DE.json';
-import enGB from './snippet/en-GB.json';
 
 const { Module } = Shopware;
 
@@ -14,11 +12,6 @@ Module.register('sw-sezzle-customers', {
     targetVersion: '6.7.0.0',
     color: '#ff6b6b',
     entity: 'sezzle_customer',
-
-    snippets: {
-        'de-DE': deDE,
-        'en-GB': enGB,
-    },
 
     routes: {
         swSezzleCustomers: {

@@ -1,0 +1,41 @@
+{% sw_extends '@Storefront/storefront/base.html.twig' %}
+
+{% block base_body_script %}
+    {{ parent() }}
+
+    {% set sezzle = page.extensions.sezzle ?? null %}
+    {% set route = app.request.attributes.get('_route') %}
+    {% set szMerchant = '' %}
+    {% set szTarget = '' %}
+
+    {% if route == 'frontend.detail.page' and sezzle and (sezzle.enablePriceBreakdownProduct ?? false) %}
+        {% set szMerchant = sezzle.merchantId %}
+        {% set szTarget = '.product-detail-price' %}
+    {% elseif route == 'frontend.checkout.cart.page' and sezzle and (sezzle.enablePriceBreakdownCart ?? false) %}
+        {% set szMerchant = sezzle.merchantId %}
+        {% set szTarget = '.checkout-aside-summary-total' %}
+    {% elseif route == 'frontend.checkout.confirm.page' and sezzle and (sezzle.enablePromotionalWidget ?? false) %}
+        {% set szMerchant = sezzle.merchantId %}
+        {% set szTarget = '.checkout-aside-summary-total' %}
+    {% elseif route == 'frontend.navigation.page' and config('Sezzle.config.enablePriceBreakdownProduct') %}
+        {% set szMerchant = config('Sezzle.config.merchantId') %}
+        {% set szTarget = '.product-price' %}
+    {% endif %}
+
+    {% if szMerchant and szTarget %}
+        <script>
+            document.sezzleConfig = {
+                configGroups: [
+                    {
+                        targetXPath: {{ szTarget|json_encode|raw }},
+                        theme: "auto"
+                    }
+                ],
+                language: document.querySelector("html").lang || "en",
+                minPrice: 0,
+                maxPrice: 250000
+            };
+        </script>
+        <script src="https://widget.sezzle.com/v1/javascript/price-widget?uuid={{ szMerchant }}"></script>
+    {% endif %}
+{% endblock %}

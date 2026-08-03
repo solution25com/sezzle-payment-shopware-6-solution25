@@ -1,24 +1,36 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Sezzle\Controller\Admin;
+
 use Sezzle\Services\WebhookManagementService;
 use Shopware\Core\Framework\Context;
+use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria;
+use Shopware\Core\Framework\DataAbstractionLayer\Search\Filter\EqualsFilter;
+use Shopware\Core\System\SalesChannel\SalesChannelCollection;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
+
 #[Route(defaults: ['_routeScope' => ['api']])]
 class SezzleWebhookController extends AbstractController
 {
+    /**
+     * @param EntityRepository<SalesChannelCollection> $salesChannelRepository
+     */
     public function __construct(
-        private readonly WebhookManagementService $webhookManagementService
+        private readonly WebhookManagementService $webhookManagementService,
+        private readonly EntityRepository $salesChannelRepository
     ) {
     }
     #[Route(path: '/api/_action/sezzle/webhook/register', name: 'api.action.sezzle.webhook.register', methods: ['POST'])]
     public function registerWebhook(Request $request, Context $context): JsonResponse
     {
         $webhookUrl = $request->request->get('webhookUrl');
-        $events = $request->request->get('events', []);
+        $events = $request->request->all()['events'] ?? [];
         $salesChannelId = $request->request->get('salesChannelId') ?? '';
         if (!$webhookUrl) {
             return new JsonResponse([
@@ -67,15 +79,41 @@ class SezzleWebhookController extends AbstractController
     public function autoConfigureWebhook(Request $request, Context $context): JsonResponse
     {
         $domain = $request->request->get('domain');
-        $salesChannelId = '019a777a2ce173e2b5a12448f9fef11f';
         if (!$domain) {
             return new JsonResponse([
                 'success' => false,
                 'error' => 'Domain is required',
             ], 400);
         }
-        $result = $this->webhookManagementService->autoConfigureWebhook($domain, $salesChannelId);
-        $statusCode = $result['success'] ? 200 : 400;
-        return new JsonResponse($result, $statusCode);
+
+        $salesChannelIds = $this->salesChannelRepository->searchIds(
+            (new Criteria())->addFilter(new EqualsFilter('active', true)),
+            $context
+        )->getIds();
+
+        if ($salesChannelIds === []) {
+            return new JsonResponse([
+                'success' => false,
+                'error' => 'No active sales channels found',
+            ], 400);
+        }
+
+        $results = [];
+        $succeeded = 0;
+        foreach ($salesChannelIds as $salesChannelId) {
+            $salesChannelId = (string) $salesChannelId;
+            $result = $this->webhookManagementService->autoConfigureWebhook($domain, $salesChannelId);
+            $results[$salesChannelId] = $result;
+            if (($result['success'] ?? false) === true) {
+                ++$succeeded;
+            }
+        }
+
+        return new JsonResponse([
+            'success' => $succeeded > 0,
+            'configured' => $succeeded,
+            'total' => \count($salesChannelIds),
+            'salesChannels' => $results,
+        ], $succeeded > 0 ? 200 : 400);
     }
 }

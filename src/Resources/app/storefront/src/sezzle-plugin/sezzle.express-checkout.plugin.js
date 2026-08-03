@@ -20,7 +20,7 @@ export default class SezzleExpressCheckoutPlugin extends PluginBaseClass {
         this.currency = wrapper.dataset.sezzleCurrency || 'USD';
 
         if (!this.publicKey) {
-            console.error('[SezzleExpressCheckout] Missing public key');
+            console.warn('[SezzleExpressCheckout] Missing public key');
             return;
         }
 
@@ -122,6 +122,8 @@ export default class SezzleExpressCheckoutPlugin extends PluginBaseClass {
                 });
             },
             onCalculateAddressRelatedCosts: async (shippingAddress, orderUuid) => {
+                const shippingOptions = this._collectShopwareShippingOptions(amountInCents);
+
                 try {
                     const res = await fetch('/sezzle/express/calculate-address-costs', {
                         method: 'POST',
@@ -129,21 +131,79 @@ export default class SezzleExpressCheckoutPlugin extends PluginBaseClass {
                         body: JSON.stringify({
                             orderUuid,
                             shippingAddress,
+                            shippingOptions,
                         }),
                     });
 
                     return { ok: res.ok };
                 } catch (e) {
                     console.error('[SezzleExpressCheckout]', e);
-                    return { ok: false };
+                    return { ok: false, error: { code: 'merchant_error' } };
                 }
             },
 
-            onComplete: (event) => {
-                console.log('[SezzleExpressCheckout] complete', event);
+            onComplete: async (event) => {
+                const payload = event?.data ?? event ?? {};
+                const orderUuid = payload.order_uuid;
+                const sessionToken = payload.session_token ?? payload.session_uuid;
+
+                if (!orderUuid || !sessionToken) {
+                    console.error('[SezzleExpressCheckout] Missing Sezzle popup result data', payload);
+                    return;
+                }
+
+                const body = new URLSearchParams();
+                body.append('sezzleOrderUuid', orderUuid);
+                body.append('sezzleSessionToken', sessionToken);
+
+                try {
+                    const res = await fetch('/sezzle/express/finalize', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        body: body.toString(),
+                    });
+                    const result = await res.json().catch(() => ({}));
+
+                    if (result?.success && result.redirectUrl) {
+                        window.location.href = result.redirectUrl;
+                        return;
+                    }
+
+                    console.error('[SezzleExpressCheckout] Finalize failed:', result?.error || 'Unknown error');
+                } catch (e) {
+                    console.error('[SezzleExpressCheckout] Finalize request failed:', e);
+                }
             },
-            onCancel: () => console.log('[SezzleExpressCheckout] cancelled'),
+            onCancel: () => console.warn('[SezzleExpressCheckout] cancelled'),
             onFailure: (err) => console.error('[SezzleExpressCheckout] failed', err),
         });
+    }
+
+    _collectShopwareShippingOptions(amountInCents) {
+        const radios = document.querySelectorAll('input[type="radio"][name="shippingMethodId"]');
+        const options = [];
+
+        radios.forEach((radio) => {
+            const container = radio.closest('.shipping-method, .custom-control, .form-check, label') || radio.parentElement;
+            if (!container) return;
+
+            const text = (container.textContent || '').trim();
+            const rawName = container.querySelector('strong, .shipping-method-name')?.textContent?.trim() || text.split('\n')[0];
+            const name = rawName.replace(/\s*-\s*\$[0-9.,]+\s*$/, '').trim();
+
+            const priceMatch = text.match(/\$\s*([0-9]+(?:[.,][0-9]{1,2})?)/);
+            const shippingAmountInCents = priceMatch ? Math.round(parseFloat(priceMatch[1].replace(',', '.')) * 100) : 0;
+
+            options.push({
+                name,
+                shipping_amount_in_cents: shippingAmountInCents,
+                tax_amount_in_cents: 0,
+                final_order_amount_in_cents: amountInCents + shippingAmountInCents,
+                _isSelected: radio.checked,
+            });
+        });
+
+        options.sort((a, b) => Number(b._isSelected) - Number(a._isSelected));
+        return options.map(({ _isSelected, ...opt }) => opt);
     }
 }

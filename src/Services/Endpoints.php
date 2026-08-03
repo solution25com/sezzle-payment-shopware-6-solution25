@@ -1,5 +1,7 @@
 <?php
+
 namespace Sezzle\Services;
+
 abstract class Endpoints
 {
     protected const AUTH_TOKEN = 'AUTH_TOKEN';

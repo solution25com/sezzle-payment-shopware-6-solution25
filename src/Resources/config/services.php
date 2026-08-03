@@ -1,23 +1,24 @@
 <?php
+
 declare(strict_types=1);
-use Symfony\Component\Config\FileLocator;
-use Symfony\Component\DependencyInjection\ContainerBuilder;
-use Symfony\Component\DependencyInjection\Loader\XmlFileLoader;
-return static function (ContainerBuilder $container): void {
-    $loader = new XmlFileLoader($container, new FileLocator(__DIR__ . '/services'));
-    $loader->load('gateways/sezzlePaymentHandler.xml');
-    $loader->load('subscriber/checkoutConfirmEventSubscriber.xml');
-    $loader->load('services/configService.xml');
-    $loader->load('services/sezzleClientServices.xml');
-    $loader->load('services/orderTransactionMapper.xml');
-    $loader->load('services/paymentTransactionStateHandler.xml');
-    $loader->load('services/logger.xml');
-    $loader->load('services/sezzleCustomerService.xml');
-    $loader->load('services/dal.xml');
-    $loader->load('services/sezzleTokenizationService.xml');
-    $loader->load('services/adminOrderCreationService.xml');
-    $loader->load('subscriber/orderSubscribers.xml');
-    $loader->load('controller/sezzleTestApiController.xml');
-    $loader->load('controller/sezzleCustomerController.xml');
-    $loader->load('controller/sezzleWebhookController.xml');
+
+use Symfony\Component\DependencyInjection\Loader\Configurator\ContainerConfigurator;
+
+return static function (ContainerConfigurator $container): void {
+    $container->import('services/gateways/sezzlePaymentHandler.xml');
+    $container->import('services/subscriber/checkoutConfirmEventSubscriber.xml');
+    $container->import('services/services/configService.xml');
+    $container->import('services/services/sezzleClientServices.xml');
+    $container->import('services/services/sezzlePaymentVerification.xml');
+    $container->import('services/services/orderTransactionMapper.xml');
+    $container->import('services/services/paymentTransactionStateHandler.xml');
+    $container->import('services/services/logger.xml');
+    $container->import('services/services/sezzleCustomerService.xml');
+    $container->import('services/services/dal.xml');
+    $container->import('services/services/sezzleTokenizationService.xml');
+    $container->import('services/services/adminOrderCreationService.xml');
+    $container->import('services/subscriber/orderSubscribers.xml');
+    $container->import('services/controller/sezzleTestApiController.xml');
+    $container->import('services/controller/sezzleCustomerController.xml');
+    $container->import('services/controller/sezzleWebhookController.xml');
 };

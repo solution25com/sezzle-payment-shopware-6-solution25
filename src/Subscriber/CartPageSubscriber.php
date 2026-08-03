@@ -28,15 +28,14 @@ class CartPageSubscriber implements EventSubscriberInterface
         $salesChannelContext = $event->getSalesChannelContext();
         $salesChannelId = $salesChannelContext->getSalesChannelId();
 
-        $enablePriceBreakdownCart = (bool) ($this->configService->getConfig('enablePriceBreakdownCart', $salesChannelId) ?? true);
+        $enablePriceBreakdownCart = $this->configService->isLaunchFeatureEnabled('enablePriceBreakdownCart', $salesChannelId);
 
-        $page = $event->getPage();
-        $cart = $page->getCart();
-
-        if (!$cart) {
+        if (!$enablePriceBreakdownCart) {
             return;
         }
 
+        $page = $event->getPage();
+        $cart = $page->getCart();
         $amount = $cart->getPrice()->getTotalPrice();
         $currency = $salesChannelContext->getCurrency()->getIsoCode();
 
@@ -56,5 +55,3 @@ class CartPageSubscriber implements EventSubscriberInterface
         $event->getPage()->addExtension('sezzle', $templateVariables);
     }
 }
-
-

@@ -1,6 +1,10 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Sezzle\Controller\Admin;
+
+use Sezzle\DataAbstractionLayer\Entity\SezzleCustomer\SezzleCustomerEntity;
 use Sezzle\Services\SezzleCustomerService;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityRepository;
@@ -8,6 +12,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Attribute\Route;
+
 #[Route(defaults: ['_routeScope' => ['api']])]
 class SezzleCustomerController extends AbstractController
 {
@@ -59,11 +64,13 @@ class SezzleCustomerController extends AbstractController
     #[Route(path: '/api/sezzle/customers/{customerId}', name: 'api.sezzle.customers.detail', methods: ['GET'])]
     public function getCustomer(string $customerId, Context $context): JsonResponse
     {
+        /** @var SezzleCustomerEntity|null $customer */
         $customer = null;
         try {
             $criteria = new \Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria([$customerId]);
             $criteria->addAssociation('shopwareCustomer');
             $criteria->addAssociation('salesChannel');
+            /** @var SezzleCustomerEntity|null $customer */
             $customer = $this->sezzleCustomerRepository->search($criteria, $context)->first();
         } catch (\Exception $e) {
             $customer = $this->sezzleCustomerService->getCustomerByUuid($customerId, $context);
@@ -114,9 +121,11 @@ class SezzleCustomerController extends AbstractController
                 ], 400);
             }
         }
+        /** @var SezzleCustomerEntity|null $customer */
         $customer = null;
         try {
             $criteria = new \Shopware\Core\Framework\DataAbstractionLayer\Search\Criteria([$customerId]);
+            /** @var SezzleCustomerEntity|null $customer */
             $customer = $this->sezzleCustomerRepository->search($criteria, $context)->first();
         } catch (\Exception $e) {
             $customer = $this->sezzleCustomerService->getCustomerByUuid($customerId, $context);

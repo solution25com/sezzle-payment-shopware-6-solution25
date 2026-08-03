@@ -63,39 +63,8 @@
     </card>
 
     <card>
-
-        <title lang="en-GB">Order Flow</title>
-        <title lang="de-DE">Order Flow</title>
-
-        <input-field type="single-select">
-            <name>flow</name>
-            <options>
-                <option>
-                    <id>order_payment</id>
-                    <name>Order then payment</name>
-                    <name lang="de-DE">Order then payment</name>
-                </option>
-                <option>
-                    <id>payment_order</id>
-                    <name>Payment then Order</name>
-                    <name lang="de-DE">Payment then Order</name>
-                </option>
-            </options>
-            <defaultValue>order_payment</defaultValue>
-            <label>Flow</label>
-            <label lang="de-DE">Flow</label>
-            <helpText>
-                Defines the sequence of the payment flow.
-                "Order then Payment" – The order will be created first. If the payment fails, the order status will be set to "failed".
-                "Payment then Order" – The payment will be attempted first. If it fails, no order will be created.
-            </helpText>
-            <helpText lang="de-DE">
-                Definiert die Reihenfolge des Zahlungsablaufs.
-                „Bestellung dann Zahlung“ – Die Bestellung wird zuerst erstellt. Wenn die Zahlung fehlschlägt, wird der Bestellstatus auf „Fehlgeschlagen“ gesetzt.
-                „Zahlung dann Bestellung“ – Zuerst wird versucht, die Zahlung durchzuführen. Bei einem Fehler wird keine Bestellung erstellt.
-            </helpText>
-        </input-field>
-
+        <title lang="en-GB">Checkout Presentation</title>
+        <title lang="de-DE">Checkout-Darstellung</title>
 
         <input-field type="single-select">
             <name>popupFormStyle</name>
@@ -103,10 +72,9 @@
             <label lang="de-DE">Popup-Formularstil</label>
             <options>
                 <option><id>popup</id><name lang="en-GB">Popup</name><name lang="de-DE">Popup</name></option>
-                <option><id>iframe</id><name lang="en-GB">Iframe</name><name lang="de-DE">Iframe</name></option>
                 <option><id>redirect</id><name lang="en-GB">Redirect</name><name lang="de-DE">Weiterleitung</name></option>
             </options>
-            <defaultValue>popup</defaultValue>
+            <defaultValue>redirect</defaultValue>
         </input-field>
 
     </card>
@@ -131,6 +99,16 @@
             <name>expressCheckoutEnabled</name>
             <label lang="en-GB">Enable Express Checkout</label>
             <label lang="de-DE">Express Checkout aktivieren</label>
+            <helpText lang="en-GB">Disabled by default. Enable only after express checkout has been approved for your store.</helpText>
+            <helpText lang="de-DE">Standardmäßig deaktiviert. Nur aktivieren, nachdem Express Checkout für Ihren Shop freigegeben wurde.</helpText>
+            <defaultValue>false</defaultValue>
+        </input-field>
+
+        <input-field type="bool">
+            <name>enableTokenization</name>
+            <label lang="en-GB">Enable customer tokenization</label>
+            <label lang="de-DE">Kundentokenisierung aktivieren</label>
+            <helpText lang="en-GB">Requires legal/compliance approval before enabling.</helpText>
             <defaultValue>false</defaultValue>
         </input-field>
 
@@ -148,31 +126,17 @@
         <title lang="de-DE">Widgets &amp; Banner</title>
 
         <input-field type="bool">
-            <name>enablePriceBreakdownProduct</name>
-            <label lang="en-GB">Enable Price Breakdown on Product Pages</label>
-            <label lang="de-DE">Preisaufschlüsselung auf Produktseiten aktivieren</label>
-            <defaultValue>true</defaultValue>
-        </input-field>
-
-        <input-field type="bool">
             <name>enablePriceBreakdownCart</name>
             <label lang="en-GB">Enable Price Breakdown on Cart Page</label>
             <label lang="de-DE">Preisaufschlüsselung auf Warenkorbseite aktivieren</label>
-            <defaultValue>true</defaultValue>
+            <defaultValue>false</defaultValue>
         </input-field>
 
         <input-field type="bool">
             <name>enablePromotionalWidget</name>
             <label lang="en-GB">Enable Promotional Widget</label>
             <label lang="de-DE">Werbe-Widget aktivieren</label>
-            <defaultValue>true</defaultValue>
-        </input-field>
-
-        <input-field type="bool">
-            <name>enableHomepageBanner</name>
-            <label lang="en-GB">Enable Homepage Banner</label>
-            <label lang="de-DE">Startseiten-Banner aktivieren</label>
-            <defaultValue>true</defaultValue>
+            <defaultValue>false</defaultValue>
         </input-field>
     </card>
 

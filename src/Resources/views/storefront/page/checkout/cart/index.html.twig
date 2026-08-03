@@ -4,80 +4,62 @@
     {% set sezzleData = page.extensions.sezzle ?? null %}
 
     {{ parent() }}
+    {% block page_checkout_container_sezzle %}
+        {% if sezzleData %}
 
-    {% if sezzleData %}
+            <div id="sezzle-smart-button-container"></div>
 
-        <div id="sezzle-smart-button-container"></div>
-
-        <script
-                type="text/javascript"
-                src="https://checkout-sdk.sezzle.com/express_checkout.min.js">
-        </script>
-
-        <script>
-            const checkoutSdk = new Checkout({
-                mode: "popup",
-                publicKey: "{{ sezzleData.publicKey }}",
-                apiMode: "{{ sezzleData.mode }}",
-                apiVersion: "v2",
-            });
-
-            checkoutSdk.renderSezzleButton("sezzle-smart-button-container");
-
-            checkoutSdk.init({
-                onClick: function (event) {
-                    event.preventDefault();
-                    checkoutSdk.startCheckout({
-                        checkout_payload: {
-                            express_checkout_type: "multi-step",
-                            is_express_checkout: true,
-                            order: {
-                                intent: "AUTH",
-                                reference_id: "demo123",
-                                description: "Sezzle Express",
-                                requires_shipping_info: true,
-                                items: [],
-                                order_amount: {
-                                    amount_in_cents: {{ (sezzleData.amount * 100)|round(0, 'floor') }},
-                                    currency: "{{ sezzleData.currency }}",
-                                },
-                            },
-                        },
-                    });
-                },
-                onComplete: function (response) {
-                    console.log("Completed", response);
-                },
-                onCancel: function () {
-                    console.log("Cancelled");
-                },
-                onFailure: function () {
-                    console.log("Failed");
-                },
-                onCalculateAddressRelatedCosts: async function (shippingAddress, order_uuid) {
-                    return { ok: true };
-                },
-            });
-        </script>
-
-        {% if sezzleData.enablePriceBreakdownCart %}
-            <script type="text/javascript">
-                document.sezzleConfig = {
-                    configGroups: [
-                        {
-                            targetXPath: ".cart-summary-total",
-                            urlMatch: "cart",
-                            theme: "auto"
-                        }
-                    ],
-                    language: document.querySelector("html").lang || "en",
-                    minPrice: 0,
-                    maxPrice: 250000
-                };
+            <script
+                    type="text/javascript"
+                    src="https://checkout-sdk.sezzle.com/express_checkout.min.js">
             </script>
 
-            <script src="https://widget.sezzle.com/v1/javascript/price-widget?uuid={{ sezzleData.merchantId }}"></script>
-        {% endif %}
+            <script>
+                const checkoutSdk = new Checkout({
+                    mode: "popup",
+                    publicKey: "{{ sezzleData.publicKey }}",
+                    apiMode: "{{ sezzleData.mode }}",
+                    apiVersion: "v2",
+                });
 
-    {% endif %}
+                checkoutSdk.renderSezzleButton("sezzle-smart-button-container");
+
+                checkoutSdk.init({
+                    onClick: function (event) {
+                        event.preventDefault();
+                        checkoutSdk.startCheckout({
+                            checkout_payload: {
+                                express_checkout_type: "multi-step",
+                                is_express_checkout: true,
+                                order: {
+                                    intent: "AUTH",
+                                    reference_id: "demo123",
+                                    description: "Sezzle Express",
+                                    requires_shipping_info: true,
+                                    items: [],
+                                    order_amount: {
+                                        amount_in_cents: {{ (sezzleData.amount * 100)|round(0, 'floor') }},
+                                        currency: "{{ sezzleData.currency }}",
+                                    },
+                                },
+                            },
+                        });
+                    },
+                    onComplete: function (response) {
+                        console.log("Completed", response);
+                    },
+                    onCancel: function () {
+                        console.log("Cancelled");
+                    },
+                    onFailure: function () {
+                        console.log("Failed");
+                    },
+                    onCalculateAddressRelatedCosts: async function (shippingAddress, order_uuid) {
+                        return { ok: true };
+                    },
+                });
+            </script>
+
+        {% endif %}
+    {% endblock %} 
 {% endblock %}

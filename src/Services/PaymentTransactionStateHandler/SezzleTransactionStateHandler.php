@@ -1,7 +1,10 @@
 <?php
+
 namespace Sezzle\Services\PaymentTransactionStateHandler;
+
 use Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionStateHandler;
 use Shopware\Core\Framework\Context;
+
 readonly class SezzleTransactionStateHandler
 {
     public function __construct(
@@ -19,6 +22,10 @@ readonly class SezzleTransactionStateHandler
     public function handleRefunded(string $transactionId, Context $context): void
     {
         $this->transactionStateHandler->refund($transactionId, $context);
+    }
+    public function handleRefundedPartially(string $transactionId, Context $context): void
+    {
+        $this->transactionStateHandler->refundPartially($transactionId, $context);
     }
     public function handleReleased(string $transactionId, Context $context): void
     {

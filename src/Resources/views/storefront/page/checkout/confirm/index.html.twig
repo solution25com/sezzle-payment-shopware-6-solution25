@@ -3,12 +3,17 @@
 {% block page_checkout_confirm_form_submit %}
     {% set sezzleData = page.extensions.sezzle ?? null %}
 
+    {% if sezzleData and sezzleData.expressCheckout %}
+        <style>
+            #confirmOrderForm button[type="submit"] { display: revert !important; visibility: visible !important; }
+        </style>
+    {% endif %}
+
     <div id="sezzle-plugin-wrapper"
          data-sezzle-plugin
          data-sezzle-merchant-id="{{ sezzleData.merchantId ?? '' }}"
          data-sezzle-mode="{{ sezzleData.mode ?? 'sandbox' }}"
          data-sezzle-popup-form-style="{{ sezzleData.popupFormStyle ?? 'popup' }}"
-         data-sezzle-payment-flow="{{ sezzleData.flow ?? '' }}"
          data-sezzle-public-key="{{ sezzleData.publicKey ?? '' }}"
          data-sezzle-private-key="{{ sezzleData.privateKey ?? '' }}"
          data-sezzle-express-checkout="{{ sezzleData.expressCheckout ? '1' : '0' }}"
@@ -31,20 +36,4 @@
         {{ parent() }}
     {% endif %}
 
-{% endblock %}
-
-{% block page_checkout_confirm_payment_method %}
-    {{ parent() }}
-
-    {% set sezzleData = page.extensions.sezzle ?? null %}
-
-    {% if sezzleData and sezzleData.enablePromotionalWidget %}
-        <div
-                class="sezzle-promotional-widget my-3"
-                data-sezzle-promotional="checkout-promotional"
-                data-sezzle-plugin
-                data-sezzle-merchant-id="{{ sezzleData.merchantId }}"
-                data-sezzle-mode="{{ sezzleData.mode }}"
-        ></div>
-    {% endif %}
 {% endblock %}

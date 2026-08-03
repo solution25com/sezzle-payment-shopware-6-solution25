@@ -1,6 +1,9 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Sezzle\Controller\Admin;
+
 use Sezzle\Services\AdminOrderCreationService;
 use Sezzle\Services\SezzleCustomerService;
 use Shopware\Core\Framework\Context;
@@ -8,6 +11,7 @@ use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\Routing\Annotation\Route;
+
 #[Route(defaults: ['_routeScope' => ['api']])]
 class SezzleOrderCreationController extends AbstractController
 {

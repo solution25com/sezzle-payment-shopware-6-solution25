@@ -16,19 +16,17 @@ Component.register('sw-sezzle-customers-detail', {
         return {
             customer: null,
             isLoading: false,
-            
-            // Order Creation
+
             showOrderCreation: false,
             orderInProgress: false,
-            selectedProducts: [], // Array of {id, quantity, name, price, productNumber}
-            availableProducts: [], // All products loaded from repository
+            selectedProducts: [],
+            availableProducts: [],
             productsLoading: false,
             salesChannels: [],
             selectedSalesChannel: null,
             shopwareCustomers: [],
             selectedShopwareCustomer: null,
-            
-            // Simple Charge (old functionality)
+
             chargeInProgress: false,
             chargeForm: {
                 amount: '',
@@ -83,22 +81,18 @@ Component.register('sw-sezzle-customers-detail', {
 
             try {
                 const customerId = this.$route.params.id;
-                
-                // Try to get from repository first (if it's a DB ID)
+
                 try {
                     this.customer = await this.customerRepository.get(customerId, Shopware.Context.api);
-                } catch (e) {
-                    // If not found in DB, try to get from API (if it's a Sezzle UUID)
+                } catch {
                     const response = await this.sezzleCustomerService.getCustomerDetails(customerId);
                     this.customer = response;
                 }
 
-                // Pre-select sales channel if customer has one
                 if (this.customer && this.customer.salesChannelId) {
                     this.selectedSalesChannel = this.customer.salesChannelId;
                 }
 
-                // Pre-select Shopware customer if linked
                 if (this.customer && this.customer.shopwareCustomerId) {
                     this.selectedShopwareCustomer = this.customer.shopwareCustomerId;
                 }
@@ -145,14 +139,13 @@ Component.register('sw-sezzle-customers-detail', {
                 criteria.addFilter(
                     Shopware.Data.Criteria.equals('active', true)
                 );
-                criteria.setLimit(500); // Load up to 500 products
+                criteria.setLimit(500);
                 criteria.addSorting(Shopware.Data.Criteria.sort('name', 'ASC'));
 
                 const products = await this.productRepository.search(criteria, Shopware.Context.api);
                 
                 this.availableProducts = [];
                 products.forEach(product => {
-                    // Get the price
                     let price = 0;
                     if (product.price && product.price.length > 0) {
                         price = product.price[0].gross || product.price[0].net || 0;
@@ -176,7 +169,6 @@ Component.register('sw-sezzle-customers-detail', {
         },
 
         onProductSelect(productId) {
-            // Check if already added
             const existing = this.selectedProducts.find(p => p.id === productId);
             if (existing) {
                 this.createNotificationWarning({
@@ -186,13 +178,11 @@ Component.register('sw-sezzle-customers-detail', {
                 return;
             }
 
-            // Find product details
             const product = this.availableProducts.find(p => p.id === productId);
             if (!product) {
                 return;
             }
 
-            // Add to selected products
             this.selectedProducts.push({
                 id: product.id,
                 name: product.name,
@@ -203,27 +193,18 @@ Component.register('sw-sezzle-customers-detail', {
         },
 
         async onProductsChange_OLD(productIds) {
-            // When products are selected/deselected in the multi-select
-            // Load full product details for newly added products
-            
             const newProductIds = productIds.filter(id => !this.selectedProducts.find(p => p.id === id));
-            const removedProductIds = this.selectedProducts
-                .filter(p => !productIds.includes(p.id))
-                .map(p => p.id);
 
-            // Remove deselected products
             this.selectedProducts = this.selectedProducts.filter(p => productIds.includes(p.id));
 
-            // Load and add new products
             if (newProductIds.length > 0) {
                 try {
                     const criteria = new Shopware.Data.Criteria(newProductIds);
                     criteria.addAssociation('cover');
-                    
+
                     const products = await this.productRepository.search(criteria, Shopware.Context.api);
 
                     products.forEach(product => {
-                        // Get the price - try different price structures
                         let price = 0;
                         if (product.price && product.price.length > 0) {
                             price = product.price[0].gross || product.price[0].net || 0;
@@ -292,11 +273,9 @@ Component.register('sw-sezzle-customers-detail', {
                         message: `Shopware Order: ${response.orderId}${sezzleOrderId}\n\nThe customer has been successfully charged via Sezzle.`,
                     });
 
-                    // Reset form
                     this.selectedProducts = [];
                     this.showOrderCreation = false;
 
-                    // Reload customer to see updated data
                     await this.loadCustomer();
                 } else {
                     let errorMessage = response.error || 'Failed to create order';
@@ -322,7 +301,6 @@ Component.register('sw-sezzle-customers-detail', {
             }
         },
 
-        // Legacy simple charge functionality
         async chargeCustomer() {
             if (!this.chargeForm.amount || !this.chargeForm.currency) {
                 this.createNotificationError({
@@ -341,7 +319,7 @@ Component.register('sw-sezzle-customers-detail', {
                         amount_in_cents: Math.round(parseFloat(this.chargeForm.amount) * 100),
                         currency: this.chargeForm.currency,
                     },
-                    currency: this.chargeForm.currency, // Also at top level
+                    currency: this.chargeForm.currency,
                     reference_id: this.chargeForm.referenceId || `charge-${Date.now()}`,
                     description: this.chargeForm.description || 'Charge customer',
                 };

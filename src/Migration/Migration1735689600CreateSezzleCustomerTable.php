@@ -1,8 +1,12 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Sezzle\Migration;
+
 use Doctrine\DBAL\Connection;
 use Shopware\Core\Framework\Migration\MigrationStep;
+
 class Migration1735689600CreateSezzleCustomerTable extends MigrationStep
 {
     public function getCreationTimestamp(): int

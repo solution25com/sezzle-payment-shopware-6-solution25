@@ -1,13 +1,18 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Sezzle\DataAbstractionLayer\Entity\SezzleCustomer;
+
 use Shopware\Core\Checkout\Customer\CustomerEntity;
 use Shopware\Core\Framework\DataAbstractionLayer\Entity;
 use Shopware\Core\Framework\DataAbstractionLayer\EntityIdTrait;
 use Shopware\Core\System\SalesChannel\SalesChannelEntity;
+
 class SezzleCustomerEntity extends Entity
 {
     use EntityIdTrait;
+
     protected string $sezzleCustomerUuid;
     protected ?string $merchantUuid = null;
     protected ?string $firstName = null;
@@ -97,6 +102,10 @@ class SezzleCustomerEntity extends Entity
         $this->shippingAddress = $shippingAddress;
     }
     public function isTokenized(): bool
+    {
+        return $this->isTokenized;
+    }
+    public function getIsTokenized(): bool
     {
         return $this->isTokenized;
     }

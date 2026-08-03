@@ -22,6 +22,9 @@ Component.register('sezzle-webhook-test', {
             webhookUuid: null,
             webhooksList: [],
             showWebhooksList: false,
+            showDeleteUuidConfirmModal: false,
+            pendingDeleteWebhookUuid: null,
+            showDeleteWebhookConfirmModal: false,
         };
     },
 
@@ -31,8 +34,6 @@ Component.register('sezzle-webhook-test', {
         },
         
         salesChannelId() {
-            // Try multiple ways to get the sales channel ID from parent config
-            // Empty string is acceptable for global configuration
             return this.$parent?.$parent?.currentSalesChannelId 
                 || this.$parent?.$parent?.actualConfigData?.null?.salesChannelId 
                 || '';
@@ -86,10 +87,15 @@ Component.register('sezzle-webhook-test', {
             }
         },
 
-        async deleteWebhookByUuid(webhookUuid) {
-            if (!confirm(`Are you sure you want to delete this webhook?\nUUID: ${webhookUuid}`)) {
-                return;
-            }
+        openDeleteUuidConfirmModal(webhookUuid) {
+            this.pendingDeleteWebhookUuid = webhookUuid;
+            this.showDeleteUuidConfirmModal = true;
+        },
+
+        async onConfirmDeleteByUuid() {
+            this.showDeleteUuidConfirmModal = false;
+            const webhookUuid = this.pendingDeleteWebhookUuid;
+            this.pendingDeleteWebhookUuid = null;
 
             try {
                 const response = await this.sezzleWebhookService.deleteWebhookByUuid(webhookUuid, this.salesChannelId);
@@ -99,8 +105,7 @@ Component.register('sezzle-webhook-test', {
                         title: 'Webhook Deleted',
                         message: 'Webhook has been successfully deleted from Sezzle',
                     });
-                    
-                    // Reload the list
+
                     await this.loadWebhooksList();
                     await this.checkWebhookStatus();
                 } else {
@@ -117,11 +122,12 @@ Component.register('sezzle-webhook-test', {
             }
         },
 
-        async deleteWebhook() {
-            if (!confirm('Are you sure you want to delete the webhook? You will need to register it again.')) {
-                return;
-            }
+        openDeleteWebhookConfirmModal() {
+            this.showDeleteWebhookConfirmModal = true;
+        },
 
+        async onConfirmDeleteWebhook() {
+            this.showDeleteWebhookConfirmModal = false;
             this.isDeletingWebhook = true;
 
             try {
@@ -198,12 +204,10 @@ Component.register('sezzle-webhook-test', {
                         title: 'Webhook Registered',
                         message: message,
                     });
-                    
-                    // Update local state
+
                     this.webhookConfigured = true;
                     this.webhookUuid = response.webhookUuid || null;
-                    
-                    // Reload config to show saved UUID
+
                     if (this.$parent && this.$parent.$parent && typeof this.$parent.$parent.loadCurrentSalesChannelConfig === 'function') {
                         this.$parent.$parent.loadCurrentSalesChannelConfig();
                     }

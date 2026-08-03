@@ -1,33 +1,63 @@
 <?php
+
 declare(strict_types=1);
+
 namespace Sezzle\Gateways;
+
+use Sezzle\Event\SezzlePaymentCompletedEvent;
 use Sezzle\Exception\SezzleApiException;
 use Sezzle\Exception\SezzleAuthException;
+use Sezzle\Library\Constants\SezzlePaymentStatus;
 use Sezzle\Services\ConfigService;
 use Sezzle\Services\Endpoints;
 use Sezzle\Services\OrderTransactionMapper\OrderTransactionMapper;
 use Sezzle\Services\SezzleClientService;
+use Sezzle\Services\SezzleOrderPaymentStatusResolver;
+use Shopware\Core\Checkout\Cart\Cart;
 use Shopware\Core\Checkout\Order\Aggregate\OrderTransaction\OrderTransactionStateHandler;
 use Shopware\Core\Checkout\Payment\Cart\PaymentHandler\AbstractPaymentHandler;
 use Shopware\Core\Checkout\Payment\Cart\PaymentHandler\PaymentHandlerType;
 use Shopware\Core\Checkout\Payment\Cart\PaymentTransactionStruct;
 use Shopware\Core\Framework\Context;
 use Shopware\Core\Framework\Struct\Struct;
+use Shopware\Core\Framework\Validation\DataBag\RequestDataBag;
+use Shopware\Core\System\SalesChannel\SalesChannelContext;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Contracts\EventDispatcher\EventDispatcherInterface;
+
 class SezzlePaymentHandler extends AbstractPaymentHandler
 {
     public function __construct(
         private readonly OrderTransactionStateHandler $transactionStateHandler,
         private readonly SezzleClientService $sezzleClientService,
         private readonly OrderTransactionMapper $orderTransactionMapper,
-        private readonly ConfigService $configService
+        private readonly ConfigService $configService,
+        private readonly SezzleOrderPaymentStatusResolver $paymentStatusResolver,
+        private readonly EventDispatcherInterface $eventDispatcher,
     ) {
     }
+
     public function supports(PaymentHandlerType $type, string $paymentMethodId, Context $context): bool
     {
         return true;
     }
+
+    public function validate(Cart $cart, RequestDataBag $dataBag, SalesChannelContext $context): ?Struct
+    {
+        $popupFormStyle = $this->configService->getConfig('popupFormStyle', $context->getSalesChannelId()) ?? 'redirect';
+
+        if ($popupFormStyle !== 'popup') {
+            return null;
+        }
+
+        if (!$dataBag->get('sezzleOrderUuid') || !$dataBag->get('sezzleSessionToken')) {
+            throw new SezzleApiException('Please complete the Sezzle popup before placing the order.');
+        }
+
+        return null;
+    }
+
     public function pay(Request $request, PaymentTransactionStruct $transaction, Context $context, ?Struct $validateStruct): ?RedirectResponse
     {
         $salesChannelId = $request->attributes->get('sw-sales-channel-id');
@@ -50,17 +80,91 @@ class SezzlePaymentHandler extends AbstractPaymentHandler
             $order->getId(),
             $customToken
         );
-        $popupFormStyle = 'redirect';
-        $authorizeAndCapture = $this->configService->getConfig('authorizeAndCapture', $salesChannelId) ?? 'auth';
-        $intent = $authorizeAndCapture === 'direct_capture' ? 'CAPTURE' : 'CAPTURE';
+        $intent = $this->paymentStatusResolver->resolvePaymentIntent($salesChannelId);
+        $popupFormStyle = $this->configService->getConfig('popupFormStyle', $salesChannelId) ?? 'redirect';
+        $tokenize = $this->configService->isLaunchFeatureEnabled('enableTokenization', $salesChannelId);
+
+        if ($popupFormStyle === 'popup') {
+            try {
+                $popupOrderUuid = $request->request->get('sezzleOrderUuid');
+                $popupSessionToken = $request->request->get('sezzleSessionToken');
+                $popupSessionUuid = $request->request->get('sezzleSessionUuid', $popupSessionToken);
+                $popupCheckoutUuid = $request->request->get('sezzleCheckoutUuid');
+
+                if (!$popupOrderUuid || !$popupSessionToken) {
+                    throw new SezzleApiException('Sezzle popup checkout did not return the required values.');
+                }
+
+                $sessionDetails = $this->sezzleClientService->getSession($popupSessionToken, $salesChannelId);
+                $verifiedOrderUuid = $sessionDetails['order']['uuid'] ?? null;
+
+                if (!$verifiedOrderUuid || $verifiedOrderUuid !== $popupOrderUuid) {
+                    throw new SezzleApiException('Unable to verify Sezzle popup order.');
+                }
+
+                $popupSessionRequest = [
+                    'checkout_payload' => [
+                        'order' => [
+                            'intent' => $intent,
+                            'reference_id' => 'cart-' . $order->getOrderNumber(),
+                            'description' => 'Order from Shopware',
+                            'order_amount' => [
+                                'amount_in_cents' => $amountInCents,
+                                'currency' => $currencyCode,
+                            ],
+                        ],
+                    ],
+                ];
+
+                $this->orderTransactionMapper->setSezzleCustomFieldFromOrder(
+                    $order,
+                    $context,
+                    [
+                        'sezzleOrderUuid' => $verifiedOrderUuid,
+                        'sezzleSessionToken' => $popupSessionToken,
+                        'sezzleSessionUuid' => $sessionDetails['uuid'] ?? $popupSessionUuid,
+                        'sezzleCheckoutUuid' => $sessionDetails['checkout']['uuid'] ?? $popupCheckoutUuid,
+                        'sezzleSessionDetails' => json_encode($sessionDetails),
+                        'sezzleCreateSessionRequest' => json_encode($popupSessionRequest),
+                        'sezzleCreateSessionResponse' => json_encode($sessionDetails),
+                        'sezzleWebhookPayloads' => [],
+                        'sezzleProcessedWebhookEvents' => [],
+                        'sezzlePaymentIntent' => $intent,
+                    ]
+                );
+
+                $status = $this->paymentStatusResolver->fetchAndResolve($verifiedOrderUuid, $salesChannelId);
+
+                if ($status !== SezzlePaymentStatus::PENDING) {
+                    $this->paymentStatusResolver->applyToTransaction($status, $transactionId, $salesChannelId, $context);
+                }
+
+                if ($status === SezzlePaymentStatus::DECLINED) {
+                    throw new \RuntimeException('Sezzle payment was not approved');
+                }
+
+                // Fires for either VERIFIED_AUTHORIZED or VERIFIED_CAPTURED — whichever
+                // the merchant's Authorize/Capture config produces — so CORE order sync
+                // triggers the same way regardless of that setting.
+                if ($status !== SezzlePaymentStatus::PENDING) {
+                    $this->eventDispatcher->dispatch(new SezzlePaymentCompletedEvent($order->getId(), $transactionId, $context));
+                }
+
+                return null;
+            } catch (\Exception $e) {
+                $this->transactionStateHandler->fail($transactionId, $context);
+                throw $e;
+            }
+        }
+
         $sessionBody = [
             'cancel_url' => [
                 'href' => $returnUrlOnCancel,
-                'method' => 'GET'
+                'method' => 'GET',
             ],
             'complete_url' => [
                 'href' => $transaction->getReturnUrl(),
-                'method' => 'GET'
+                'method' => 'GET',
             ],
             'customer' => [
                 'email' => $orderCustomer->getEmail(),
@@ -68,7 +172,6 @@ class SezzlePaymentHandler extends AbstractPaymentHandler
                 'last_name' => $billingAddress->getLastName(),
                 'phone' => $billingAddress->getPhoneNumber(),
                 'dob' => $customer->getBirthday()?->format('Y-m-d'),
-                'tokenize' => true,
                 'billing_address' => [
                     'name' => $billingAddress->getFirstName() . ' ' . $billingAddress->getLastName(),
                     'street' => $billingAddress->getStreet(),
@@ -100,6 +203,11 @@ class SezzlePaymentHandler extends AbstractPaymentHandler
                 'items' => [],
             ],
         ];
+
+        if ($tokenize) {
+            $sessionBody['customer']['tokenize'] = true;
+        }
+
         foreach ($order->getLineItems() as $lineItem) {
             $sessionBody['order']['items'][] = [
                 'name' => $lineItem->getLabel(),
@@ -111,12 +219,14 @@ class SezzlePaymentHandler extends AbstractPaymentHandler
                 ],
             ];
         }
+
         try {
             $sessionResponse = $this->sezzleClientService->createSession($sessionBody, $salesChannelId);
             if (empty($sessionResponse['uuid']) || empty($sessionResponse['order']['uuid'])) {
                 $this->transactionStateHandler->fail($transaction->getOrderTransactionId(), $context);
                 throw new SezzleApiException('Unable to create Sezzle session. Please verify your Sezzle configuration.');
             }
+
             $this->orderTransactionMapper->setSezzleCustomFieldFromOrder(
                 $order,
                 $context,
@@ -128,56 +238,77 @@ class SezzlePaymentHandler extends AbstractPaymentHandler
                     'sezzleCreateSessionRequest' => json_encode($sessionBody),
                     'sezzleCreateSessionResponse' => json_encode($sessionResponse),
                     'sezzleWebhookPayloads' => [],
+                    'sezzleProcessedWebhookEvents' => [],
+                    'sezzlePaymentIntent' => $intent,
                 ]
             );
-            if ($popupFormStyle === 'redirect' && isset($sessionResponse['order']['checkout_url'])) {
-              return new RedirectResponse($sessionResponse['order']['checkout_url']);
-            } else {
-                $checkoutUrl = $transaction->getReturnUrl() . '?sezzle_session_token=' . urlencode($sessionResponse['uuid']);
-              return new RedirectResponse($checkoutUrl);
+
+            $checkoutUrl = $sessionResponse['order']['checkout_url'] ?? null;
+            if (!is_string($checkoutUrl) || $checkoutUrl === '') {
+                $this->transactionStateHandler->fail($transaction->getOrderTransactionId(), $context);
+                throw new SezzleApiException('Sezzle checkout URL missing from session response.');
             }
+
+            return new RedirectResponse($checkoutUrl);
         } catch (SezzleAuthException | SezzleApiException $e) {
             $this->transactionStateHandler->fail($transaction->getOrderTransactionId(), $context);
             throw $e;
         }
     }
+
     public function finalize(Request $request, PaymentTransactionStruct $transaction, Context $context): void
     {
+        $transactionId = $transaction->getOrderTransactionId();
+
         try {
-            $salesChannelId = $request->attributes->get('sw-sales-channel-id');
-            $orderTransaction = $this->orderTransactionMapper->getOrderTransactionsById($transaction->getOrderTransactionId(), $context);
+            $orderTransaction = $this->orderTransactionMapper->getOrderTransactionsById($transactionId, $context);
             $order = $orderTransaction->getOrder();
+            $salesChannelId = $order->getSalesChannelId();
             $customFields = $order->getCustomFields() ?? [];
-            $sessionToken = $customFields['sezzleSessionToken'] ?? null;
             $sezzleOrderUuid = $customFields['sezzleOrderUuid'] ?? null;
 
-            if (!$sessionToken || !$sezzleOrderUuid) {
-                if ($sezzleOrderUuid) {
-                    $this->transactionStateHandler->paid($transaction->getOrderTransactionId(), $context);
-                    return;
+            if (!$sezzleOrderUuid) {
+                $this->transactionStateHandler->fail($transactionId, $context);
+                throw new \RuntimeException('Sezzle order UUID not found');
+            }
+
+            $sessionToken = $customFields['sezzleSessionToken'] ?? null;
+            if ($sessionToken) {
+                try {
+                    $sessionDetails = $this->sezzleClientService->getSession($sessionToken, $salesChannelId);
+                    $this->orderTransactionMapper->setSezzleCustomFieldFromOrder(
+                        $order,
+                        $context,
+                        array_merge($customFields, [
+                            'sezzleCustomerUuid' => $sessionDetails['uuid'] ?? null,
+                            'sezzleCustomerTokenized' => $sessionDetails['tokenized']['token'] ?? false,
+                            'sezzleSessionDetails' => json_encode($sessionDetails),
+                        ])
+                    );
+                } catch (\Exception) {
                 }
-                $this->transactionStateHandler->fail($transaction->getOrderTransactionId(), $context);
-                throw new \RuntimeException('Sezzle session token or order UUID not found');
             }
-            try {
-                $sessionDetails = $this->sezzleClientService->getSession($sessionToken, $order->getSalesChannelId());
-                $customerUuid = $sessionDetails['uuid'] ?? null;
-                $customerTokenized = $sessionDetails['tokenized']['token'] ?? false;
-                $sezzleData = [
-                    'sezzleCustomerUuid' => $customerUuid,
-                    'sezzleCustomerTokenized' => $customerTokenized,
-                    'sezzleSessionDetails' => json_encode($sessionDetails),
-                ];
-                $this->orderTransactionMapper->setSezzleCustomFieldFromOrder(
-                    $order,
-                    $context,
-                    array_merge($customFields, $sezzleData)
-                );
-            } catch (\Exception $e) {
+
+            $status = $this->paymentStatusResolver->fetchAndResolve($sezzleOrderUuid, $salesChannelId);
+
+            if ($status === SezzlePaymentStatus::PENDING) {
+                return;
             }
-            $this->transactionStateHandler->paid($transaction->getOrderTransactionId(), $context);
+
+            $this->paymentStatusResolver->applyToTransaction($status, $transactionId, $salesChannelId, $context);
+
+            if ($status === SezzlePaymentStatus::DECLINED) {
+                throw new \RuntimeException('Sezzle payment was not approved');
+            }
+
+            // Past this point status is VERIFIED_AUTHORIZED or VERIFIED_CAPTURED —
+            // sezzleOrderUuid/session/charge custom fields are now written, so CORE
+            // order sync (listening for this event) has what it needs to map the order.
+            $this->eventDispatcher->dispatch(new SezzlePaymentCompletedEvent($order->getId(), $transactionId, $context));
+        } catch (SezzleAuthException | SezzleApiException $e) {
+            throw $e;
         } catch (\Exception $e) {
-            $this->transactionStateHandler->fail($transaction->getOrderTransactionId(), $context);
+            $this->transactionStateHandler->fail($transactionId, $context);
             throw $e;
         }
     }

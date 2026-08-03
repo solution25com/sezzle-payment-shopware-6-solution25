@@ -1,5 +1,3 @@
-const ApiService = Shopware.Classes.ApiService;
-
 export default class SezzleCustomerService {
     constructor(httpClient) {
         this.httpClient = httpClient;

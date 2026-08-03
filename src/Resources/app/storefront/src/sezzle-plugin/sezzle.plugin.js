@@ -9,7 +9,13 @@ export default class SezzlePlugin extends PluginBaseClass {
 
     init() {
         this._registerElements();
-        if (!this.wrapper || !this.publicKey) return;
+        if (!this.wrapper || !this.publicKey) {
+            return;
+        }
+
+        if (this.popupFormStyle !== 'popup' || !this.confirmOrderForm) {
+            return;
+        }
 
         this._loadCheckoutSDK();
     }
@@ -21,22 +27,35 @@ export default class SezzlePlugin extends PluginBaseClass {
             return;
         }
 
-        this.merchantId = this.wrapper.dataset.sezzleMerchantId;
-        this.mode = this.wrapper.dataset.sezzleMode || 'sandbox'; // sandbox | production
+        this.mode = this.wrapper.dataset.sezzleMode || 'sandbox';
         this.popupFormStyle = this.wrapper.dataset.sezzlePopupFormStyle || 'popup';
-        this.orderPayment = this.wrapper.dataset.sezzlePaymentFlow;
         this.publicKey = this.wrapper.dataset.sezzlePublicKey;
+        this.intent = this.wrapper.dataset.sezzleIntent || 'AUTH';
+        this.referenceId = this.wrapper.dataset.sezzleReferenceId || `cart-${Date.now()}`;
+        this.description = this.wrapper.dataset.sezzleDescription || 'Order from Shopware';
+        this.currency = this.wrapper.dataset.sezzleCurrency || 'USD';
+        this.amountInCents = Number.parseInt(this.wrapper.dataset.sezzleAmountInCents || '0', 10);
 
+        this.buttonContainer = document.getElementById(this.options.sezzleButtonContainerId);
         this.confirmOrderForm = document.getElementById('confirmOrderForm');
         this.buyButton = this.confirmOrderForm?.querySelector('button[type="submit"]');
-
-        console.log('[SezzlePlugin] merchantId:', this.merchantId);
-        console.log('[SezzlePlugin] orderPayment:', this.orderPayment);
+        this.isCheckoutInProgress = false;
+        this.isSubmittingAfterPopup = false;
+        this.sezzleButton = null;
+        this.nativeFormSubmit = null;
+        this.shouldStartCheckoutWhenReady = false;
     }
 
     _loadCheckoutSDK() {
         if (window.Checkout) {
-            this._initCheckout();
+            void this._initCheckout();
+            return;
+        }
+
+        if (window.sezzleCheckoutSdkPromise) {
+            window.sezzleCheckoutSdkPromise
+                .then(() => this._initCheckout())
+                .catch(() => this._handleSdkLoadFailure());
             return;
         }
 
@@ -45,85 +64,235 @@ export default class SezzlePlugin extends PluginBaseClass {
         script.async = true;
         script.type = 'text/javascript';
         script.crossOrigin = 'anonymous';
-        script.onload = () => this._initCheckout();
-        script.onerror = () => console.error('[SezzlePlugin] SDK load failed:', script.src);
+
+        window.sezzleCheckoutSdkPromise = new Promise((resolve, reject) => {
+            script.onload = resolve;
+            script.onerror = reject;
+        });
+
+        window.sezzleCheckoutSdkPromise
+            .then(() => this._initCheckout())
+            .catch(() => this._handleSdkLoadFailure());
 
         document.head.appendChild(script);
-    } // ✅ IMPORTANT: close _loadCheckoutSDK here
+    }
 
-    _initCheckout() {
-        this._ensureButtonContainer();
+    async _initCheckout() {
+        if (this.checkoutSdk) {
+            if (this.shouldStartCheckoutWhenReady) {
+                this.shouldStartCheckoutWhenReady = false;
+                this._startCheckout();
+            }
 
-        const checkoutSdk = new window.Checkout({
-            mode: this.popupFormStyle || 'popup',
+            return;
+        }
+
+        this.checkoutSdk = new window.Checkout({
+            mode: 'popup',
             publicKey: this.publicKey,
-            apiMode: this.mode,
+            apiMode: this.mode === 'live' ? 'live' : 'sandbox',
             apiVersion: this.options.apiVersion,
         });
 
-        checkoutSdk.renderSezzleButton(this.options.sezzleButtonContainerId);
-
-        const payload = {
-            checkout_payload: {
-                order: {
-                    intent: 'AUTH',
-                    reference_id: 'ORDER-' + Date.now(),
-                    description: 'Order from Shopware',
-                    order_amount: {
-                        amount_in_cents: 10000, // TODO: replace with real amount
-                        currency: 'USD',        // TODO: replace with real currency
-                    },
-                },
-            },
-        };
-
-        const startCheckout = () => checkoutSdk.startCheckout(payload);
-
-        if (this.orderPayment === 'payment_order' && this.confirmOrderForm) {
-            this.confirmOrderForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                startCheckout();
-            });
+        if (this.buttonContainer) {
+            await this.checkoutSdk.renderSezzleButton(this.options.sezzleButtonContainerId);
+            this.sezzleButton = this.buttonContainer.querySelector('button, [role="button"]');
         }
 
-        checkoutSdk.init({
+        this.checkoutSdk.init({
             onClick: (event) => {
-                event.preventDefault();
-                startCheckout();
+                event?.preventDefault?.();
+                this._startCheckout();
             },
-            onComplete: (event) => this._handleOrderPaymentSuccess(event.data),
-            onCancel: () => console.log('[SezzlePlugin] Checkout cancelled'),
-            onFailure: (err) => console.error('[SezzlePlugin] Checkout failed', err),
+            onComplete: (event) => this._handleOrderPaymentSuccess(event),
+            onCancel: () => this._resetCheckoutState(),
+            onFailure: (error) => {
+                console.error('[SezzlePlugin] Checkout failed', error);
+                this._resetCheckoutState();
+            },
+        });
+
+        this.confirmOrderForm.addEventListener('submit', (event) => this._handleFormSubmit(event));
+        this._patchProgrammaticSubmit();
+
+        if (this.shouldStartCheckoutWhenReady) {
+            this.shouldStartCheckoutWhenReady = false;
+            this._startCheckout();
+        }
+    }
+
+    _handleFormSubmit(event) {
+        if (!this._shouldOpenPopup()) {
+            return;
+        }
+
+        event.preventDefault();
+        this._startCheckoutFromSubmit();
+    }
+
+    _patchProgrammaticSubmit() {
+        if (this.nativeFormSubmit) {
+            return;
+        }
+
+        this.nativeFormSubmit = HTMLFormElement.prototype.submit.bind(this.confirmOrderForm);
+        this.confirmOrderForm.submit = () => this._handleProgrammaticSubmit();
+    }
+
+    _handleProgrammaticSubmit() {
+        if (!this._shouldOpenPopup()) {
+            this._submitFormNative();
+            return;
+        }
+
+        this._startCheckoutFromSubmit();
+    }
+
+    _startCheckoutFromSubmit() {
+        this._setBuyButtonDisabled(true);
+
+        if (!this.checkoutSdk) {
+            this.shouldStartCheckoutWhenReady = true;
+            void this._loadCheckoutSDK();
+            return;
+        }
+
+        if (this.sezzleButton) {
+            this.sezzleButton.click();
+            return;
+        }
+
+        this._startCheckout();
+    }
+
+    _shouldOpenPopup() {
+        return !this.isSubmittingAfterPopup && this._isSezzleSelected();
+    }
+
+    _isSezzleSelected() {
+        const selectedPaymentInput = document.querySelector(
+            'input[type="radio"][name="paymentMethodId"]:checked'
+        );
+
+        if (!selectedPaymentInput) {
+            return true;
+        }
+
+        return selectedPaymentInput.value === this.wrapper.dataset.paymentMethodId;
+    }
+
+    _startCheckout() {
+        if (this.isCheckoutInProgress || !this.checkoutSdk) {
+            return;
+        }
+
+        this.isCheckoutInProgress = true;
+
+        try {
+            this.checkoutSdk.startCheckout({
+                checkout_payload: {
+                    order: {
+                        intent: this.intent,
+                        reference_id: this.referenceId,
+                        description: this.description,
+                        order_amount: {
+                            amount_in_cents: this.amountInCents,
+                            currency: this.currency,
+                        },
+                    },
+                },
+            });
+        } catch (error) {
+            console.error('[SezzlePlugin] Checkout failed', error);
+            this._resetCheckoutState();
+        }
+    }
+
+    _handleSdkLoadFailure() {
+        console.error('[SezzlePlugin] Failed to load Sezzle SDK');
+        this._resetCheckoutState();
+    }
+
+    _resetCheckoutState() {
+        this.isCheckoutInProgress = false;
+        this._removeFormLoadingIndicator();
+        this._setBuyButtonDisabled(false);
+    }
+
+    _removeFormLoadingIndicator() {
+        this.confirmOrderForm?.dispatchEvent(new Event('removeLoader'));
+    }
+
+    _setBuyButtonDisabled(isDisabled) {
+        if (this.buyButton) {
+            this.buyButton.disabled = isDisabled;
+        }
+    }
+
+    _handleOrderPaymentSuccess(eventOrData) {
+        if (!this.confirmOrderForm) {
+            this._resetCheckoutState();
+            return;
+        }
+
+        const payload = this._extractCompletionPayload(eventOrData) || {};
+        const orderUuid = this._firstValue(payload.order_uuid, payload.orderUuid, payload.order?.uuid);
+        const sessionToken = this._firstValue(payload.session_token, payload.sessionToken, payload.token, payload.session?.token);
+        const sessionUuid = this._firstValue(payload.session_uuid, payload.sessionUuid, payload.uuid, payload.session?.uuid);
+        const checkoutUuid = this._firstValue(payload.checkout_uuid, payload.checkoutUuid, payload.checkout?.uuid);
+
+        if (!orderUuid || (!sessionToken && !sessionUuid)) {
+            console.error('[SezzlePlugin] Missing Sezzle popup result data');
+            this._resetCheckoutState();
+            return;
+        }
+
+        this._setHiddenFields({
+            sezzleOrderUuid: orderUuid,
+            sezzleSessionToken: sessionToken ?? sessionUuid,
+            sezzleSessionUuid: sessionUuid ?? sessionToken,
+            sezzleCheckoutUuid: checkoutUuid,
+        });
+        this.isSubmittingAfterPopup = true;
+        this._setBuyButtonDisabled(false);
+        this._submitFormNative();
+    }
+
+    _submitFormNative() {
+        if (this.nativeFormSubmit) {
+            this.nativeFormSubmit();
+            return;
+        }
+
+        HTMLFormElement.prototype.submit.call(this.confirmOrderForm);
+    }
+
+    _extractCompletionPayload(eventOrData) {
+        return eventOrData?.data ?? eventOrData?.payload ?? eventOrData ?? null;
+    }
+
+    _firstValue(...values) {
+        return values.find((value) => value !== undefined && value !== null && value !== '');
+    }
+
+    _setHiddenFields(fields) {
+        Object.entries(fields).forEach(([name, value]) => {
+            if (value !== undefined && value !== null && value !== '') {
+                this._setHiddenField(name, value);
+            }
         });
     }
 
-    _ensureButtonContainer() {
-        let container = document.getElementById(this.options.sezzleButtonContainerId);
-        if (!container) {
-            container = document.createElement('div');
-            container.id = this.options.sezzleButtonContainerId;
-            container.style.display = 'none';
-            document.body.appendChild(container);
-        }
-    }
+    _setHiddenField(name, value) {
+        let field = this.confirmOrderForm.querySelector(`input[name="${name}"]`);
 
-    _handleOrderPaymentSuccess(data) {
-        if (!data?.order_uuid) {
-            console.error('[SezzlePlugin] Missing order_uuid');
-            return;
+        if (!field) {
+            field = document.createElement('input');
+            field.type = 'hidden';
+            field.name = name;
+            this.confirmOrderForm.appendChild(field);
         }
 
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'sezzleOrderUuid';
-        input.value = data.order_uuid;
-
-        if (!this.confirmOrderForm) {
-            console.error('[SezzlePlugin] confirmOrderForm not found');
-            return;
-        }
-
-        this.confirmOrderForm.appendChild(input);
-        this.confirmOrderForm.submit();
+        field.value = value;
     }
 }
